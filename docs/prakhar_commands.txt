@@ -1,0 +1,4 @@
+### to see the postgres db and tables
+docker exec -it cadence_scheduler-db-1 psql -U scheduler_user -d scheduler_db
+## show all tables 
+\dt 
