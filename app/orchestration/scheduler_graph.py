@@ -1,1 +1,150 @@
+from langgraph.graph import StateGraph, END
+from app.orchestration.state import AgentState
+
+
+# This is your main file, as described in `SOLUTION_ARCHITECTURE.md` (Section 5).
+# Your job is to "wire up" the agents your teammates are building.
+
+# --- 1. Import Your Team's Agents ---
+# You'll need to import the *functions* or *classes* from the `app/agents/` folder.
+# Your teammates are building these files.
+# For now, we'll use placeholder functions so this code can be run.
+#
+# TODO: Replace these placeholders with your team's real imports, e.g.:
+from app.agents.task_decomposer import TaskDecomposerAgent
+from app.agents.scheduler_brain import SchedulerBrainAgent
+from app.agents.scheduler_brain import CalendarIntegratorAgent
+
+# ... etc.
+
+def task_decomposer_node(state: AgentState) -> AgentState:
+    """Placeholder for Agent 1: Task Decomposer"""
+    print("--- ORCHESTRATOR: Calling Agent 1 (Task Decomposer) ---")
+    # In the real code, you'd call your teammate's agent:
+    agent = TaskDecomposerAgent()
+    result_state = agent.execute(state)
+    return result_state
+
+    # # For now, we'll just pretend it worked and add mock data
+    # state["decomposed_tasks"] = [{"description": "Mock task 1"}, {"description": "Mock task 2"}]
+    # print(f"--- ORCHESTRATOR: Agent 1 Output: {state['decomposed_tasks']}")
+    # return state
+
+
+def scheduler_brain_node(state: AgentState) -> AgentState:
+    """Placeholder for Agent 2: Scheduler Brain"""
+    print("--- ORCHESTRATOR: Calling Agent 2 (Scheduler Brain) ---")
+    # TODO: Call your teammate's agent
+    agent = SchedulerBrainAgent()
+    result_state = agent.execute(state)
+    return result_state
+
+    # # Mock data: Let's pretend it found no conflicts this time
+    # state["scheduling_plan"] = [{"task_id": "123", "start_time": "14:00"}]
+    # state["conflicts"] = []
+    # state["needs_user_input"] = False  # <-- Set this to True to test the conflict path
+    # print(f"--- ORCHESTRATOR: Agent 2 Output: Conflicts? {state['needs_user_input']}")
+    # return state
+
+
+def calendar_integrator_node(state: AgentState) -> AgentState:
+    """Placeholder for Agent 3: Calendar Integrator"""
+    print("--- ORCHESTRATOR: Calling Agent 3 (Calendar Integrator) ---")
+    # TODO: Call your teammate's agent
+    agent = CalendarIntegratorAgent()
+    result_state = agent.execute(state)
+    return result_state
+
+    # state["scheduled_events"] = ["google-event-id-123"]
+    # print(f"--- ORCHESTRATOR: Agent 3 Output: {state['scheduled_events']}")
+    # return state
+
+
+def ask_user_node(state: AgentState) -> AgentState:
+    """
+    This is a special node. It PAUSES the graph.
+    The API will return the conflicts to the user.
+    The user's response will be sent back via a *different* API endpoint,
+    which will resume the graph.
+    """
+    print("--- ORCHESTRATOR: Pausing for user input. ---")
+    print(f"--- Conflicts to show user: {state['conflicts']}")
+    # The graph will stop here and wait.
+    # The `user_feedback` key will be populated when the graph is resumed.
+    return state
+
+
+# --- 2. Define the Conditional Logic ---
+# This function decides *where to go* after the 'scheduler_brain' node.
+# It reads the "clipboard" (state) to make its decision.
+def route_after_scheduling(state: AgentState) -> str:
+    """
+    Reads the state and decides the next step.
+    This is the "conditional edge" from your documentation.
+    """
+    print("--- ORCHESTRATOR: Making decision... ---")
+    if state.get("needs_user_input", False):
+        print("--- ORCHESTRATOR: Decision: Conflicts found, asking user. ---")
+        return "ask_user"  # This string must match a node name
+    else:
+        print("--- ORCHESTRATOR: Decision: No conflicts, integrating calendar. ---")
+        return "integrate"  # This string must match a node name
+
+
+# --- 3. Build the Graph ---
+def create_scheduler_graph():
+    """
+    This function builds the complete agent workflow.
+    """
+
+    # Initialize the graph and tell it what "clipboard" (State) to use.
+    workflow = StateGraph(AgentState)
+
+    # --- 4. Add Nodes ---
+    # Give each agent function a unique name in the graph.
+    workflow.add_node("decompose", task_decomposer_node)
+    workflow.add_node("schedule", scheduler_brain_node)
+    workflow.add_node("integrate", calendar_integrator_node)
+    workflow.add_node("ask_user", ask_user_node)
+
+    # --- 5. Add Edges ---
+    # Set the starting point
+    workflow.set_entry_point("decompose")
+
+    # "Happy Path" Edges
+    # After 'decompose' finishes, *always* go to 'schedule'.
+    workflow.add_edge("decompose", "schedule")
+
+    # After 'integrate' (Agent 3) finishes, the flow is *done*.
+    workflow.add_edge("integrate", END)
+
+    # Conditional Edge
+    # After 'schedule' (Agent 2) finishes, call our routing function
+    # to decide where to go next.
+    workflow.add_conditional_edges(
+        "schedule",  # The node to start from
+        route_after_scheduling,  # The function that makes the decision
+        {
+            # The possible return values from our function and
+            # which node to go to.
+            "ask_user": "ask_user",
+            "integrate": "integrate"
+        }
+    )
+
+    # Conflict Loop Edge
+    # As per SOLUTION_ARCHITECTURE.md, after the user provides input
+    # (at the 'ask_user' node), we loop *back* to the 'schedule' node
+    # to try again with the new information.
+    workflow.add_edge("ask_user", "schedule")
+
+    # --- 6. Compile the Graph ---
+    # This finalizes the workflow.
+    print("--- ORCHESTRATOR: Compiling graph... ---")
+    app = workflow.compile()
+    print("--- ORCHESTRATOR: Graph compiled successfully! ---")
+    return app
+
+# You will then import this `create_scheduler_graph` function
+# in your main FastAPI file (`app/main.py`) to be used.
 # Main scheduling workflow
