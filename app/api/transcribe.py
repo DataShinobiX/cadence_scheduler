@@ -5,7 +5,7 @@ import os
 from typing import Optional
 
 from app.orchestration.state import create_initial_state
-from app.orchestration.scheduler_graph import create_scheduler_graph
+from app.orchestration.orchestrator import run_orchestration
 
 router = APIRouter()
 
@@ -14,11 +14,6 @@ API_KEY = "sk-aU7KLAifP85EWxg4J7NFJg"
 BASE_URL = "https://fj7qg3jbr3.execute-api.eu-west-1.amazonaws.com/v1"
 
 client = OpenAI(api_key=API_KEY, base_url=BASE_URL)
-
-# Create the scheduler graph once (reuse across requests)
-print("Initializing scheduler graph...")
-scheduler_graph = create_scheduler_graph()
-print("Scheduler graph ready!")
 
 
 @router.post("/api/transcribe")
@@ -95,12 +90,8 @@ async def transcribe_audio(
             print("=" * 60)
 
             try:
-                # Execute the LangGraph workflow
-                final_state = scheduler_graph.invoke(state)
-
-                print("\n" + "=" * 60)
-                print("✅ ORCHESTRATION COMPLETE")
-                print("=" * 60)
+                # Delegate to the orchestrator
+                final_state = run_orchestration(state)
 
                 # Return comprehensive results
                 return {
