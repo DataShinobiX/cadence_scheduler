@@ -44,6 +44,10 @@ def fetch_calendar_events(
     - is_movable
     - is_external
     """
+    print(f"\n[DB] 📅 Fetching calendar events...")
+    print(f"[DB] User ID: {user_id}")
+    print(f"[DB] Date range: {start_datetime.isoformat()} to {end_datetime.isoformat()}")
+
     query = """
         SELECT
             summary,
@@ -58,17 +62,35 @@ def fetch_calendar_events(
           AND end_datetime   <= %s
         ORDER BY start_datetime ASC
     """
+    try:
+        print(f"[DB] 🔌 Connecting to database...")
+        conn = _get_connection()
+        print(f"[DB] ✅ Database connection established")
+    except Exception as e:
+        print(f"[DB] ❌ Error connecting to DB: {e}")
+        import traceback
+        traceback.print_exc()
+        raise
 
-    conn = _get_connection()
     try:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            print(f"[DB] 📝 Executing query with params: user_id={user_id}")
             cur.execute(
                 query,
                 (user_id, start_datetime, end_datetime),
             )
             rows = cur.fetchall() or []
+            print(f"[DB] ✅ Query successful - Found {len(rows)} events")
+
+            if rows:
+                print(f"[DB] 📊 Calendar events retrieved:")
+                for i, row in enumerate(rows, 1):
+                    print(f"[DB]   {i}. {row.get('summary')} | {row.get('start_datetime')} -> {row.get('end_datetime')} | movable={row.get('is_movable')}")
+            else:
+                print(f"[DB] ℹ️  No existing calendar events found for this user")
+
             # Ensure Python datetime objects are returned by psycopg2
-            return [
+            result = [
                 {
                     "summary": row.get("summary"),
                     "description": row.get("description"),
@@ -79,8 +101,15 @@ def fetch_calendar_events(
                 }
                 for row in rows
             ]
+            return result
+    except Exception as e:
+        print(f"[DB] ❌ Error executing query: {e}")
+        import traceback
+        traceback.print_exc()
+        raise
     finally:
         conn.close()
+        print(f"[DB] 🔌 Database connection closed")
 
 
 def _get_user_id_by_email(email: str) -> Optional[str]:

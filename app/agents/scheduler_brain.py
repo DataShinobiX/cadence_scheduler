@@ -151,49 +151,55 @@ def call_llm(prompt: str, context: Dict) -> str:
     import os
     logger = logging.getLogger(__name__)
 
-    logger.info("Initializing SchedulerBrainAgent")
+    print(f"\n[LLM] 🤖 Initializing SchedulerBrainAgent LLM...")
 
     model_name = "gpt-5-mini"
+    api_key = "sk-aU7KLAifP85EWxg4J7NFJg"
+    base_url = "https://fj7qg3jbr3.execute-api.eu-west-1.amazonaws.com/v1"
+    temperature = 0.2
+
+    print(f"[LLM] 📋 Configuration:")
+    print(f"[LLM]   Model: {model_name}")
+    print(f"[LLM]   Base URL: {base_url}")
+    print(f"[LLM]   API Key: {api_key[:10]}...{api_key[-4:]}")
+    print(f"[LLM]   Temperature: {temperature}")
 
     # Load system prompt from prompts/scheduler.txt (co-located with this file)
     def _load_scheduler_system_prompt() -> str:
         path = os.path.join(os.path.dirname(__file__), "prompts", "scheduler.txt")
         try:
             with open(path, "r", encoding="utf-8") as f:
-                return f.read()
+                content = f.read()
+                print(f"[LLM] ✅ Loaded system prompt from {path} ({len(content)} chars)")
+                return content
         except Exception as exc:
-            logger.info("Failed to load system prompt, defaulting to empty %s", exc)
+            print(f"[LLM] ⚠️ Failed to load system prompt from {path}: {exc}")
+            print(f"[LLM]   Using empty system prompt")
             return ""
 
     system_prompt = _load_scheduler_system_prompt()
 
-    api_key = "sk-aU7KLAifP85EWxg4J7NFJg"
-    base_url = "https://fj7qg3jbr3.execute-api.eu-west-1.amazonaws.com/v1"
-    temperature = 0.2
-
     try:
-        # Match user's example signature exactly
-        logger.info("Initializing LLM")
+        print(f"[LLM] 🔧 Initializing LangChain ChatOpenAI...")
         from langchain_openai import ChatOpenAI
         from langchain_core.messages import SystemMessage, HumanMessage
         llm = ChatOpenAI(
             model=model_name,
             api_key=api_key,
-            base_url=base_url,
-            temperature=temperature,
+            base_url=base_url
         )
+        print(f"[LLM] ✅ LangChain ChatOpenAI initialized successfully")
     except Exception as exc:
-        logger.info("Failed to initialize LLM, falling back to heuristic %s", exc)
+        print(f"[LLM] ❌ Failed to initialize LLM: {exc}")
+        import traceback
+        traceback.print_exc()
         llm = None
 
-    logger.info(
-        "SchedulerBrainAgent initialized: llm_available=%s model=%s",
-        bool(llm),
-        model_name,
-    )
+    print(f"[LLM] 🎯 LLM Status: {'Available' if llm else 'Unavailable (using heuristic)'}")
 
     # Fallback heuristic if LLM unavailable
     if llm is None:
+        print(f"[LLM] ⚠️ Returning heuristic fallback response")
         return json.dumps(
             {
                 "best_slot_id": "slot_a",
@@ -203,24 +209,40 @@ def call_llm(prompt: str, context: Dict) -> str:
 
     # Prepare messages and invoke the model
     try:
+        print(f"[LLM] 📤 Preparing to invoke LLM...")
         from langchain_core.messages import SystemMessage, HumanMessage
         human_content = (
             f"{prompt.strip()}\n\n"
             f"CONTEXT (JSON):\n{json.dumps(context, default=str)}"
         )
+
+        print(f"[LLM] 📝 Prompt length: {len(prompt)} chars")
+        print(f"[LLM] 📦 Context keys: {list(context.keys())}")
+        print(f"[LLM] 🚀 Invoking LLM...")
+
         response = llm.invoke(
             [
                 SystemMessage(content=system_prompt),
                 HumanMessage(content=human_content),
             ]
         )
+
+        print(f"[LLM] ✅ LLM invocation successful!")
+
         # Expecting JSON string per prompt contract
         content = getattr(response, "content", None)
         if not content:
             content = str(response)
+
+        print(f"[LLM] 📥 Response length: {len(content)} chars")
+        print(f"[LLM] 📄 Response preview: {content[:200]}...")
+
         return content
     except Exception as exc:
-        logger.info("LLM invocation failed, falling back to heuristic %s", exc)
+        print(f"[LLM] ❌ LLM invocation failed: {exc}")
+        import traceback
+        traceback.print_exc()
+        print(f"[LLM] ⚠️ Falling back to heuristic response")
         return json.dumps(
             {
                 "best_slot_id": "slot_a",
@@ -230,14 +252,20 @@ def call_llm(prompt: str, context: Dict) -> str:
 
 
 def llm_choose_best_slot(
-    task: 'Task', 
-    candidates: List[List['TimeSlot']], 
-    preferences: Dict, 
+    task: 'Task',
+    candidates: List[List['TimeSlot']],
+    preferences: Dict,
     already_scheduled: List[Dict]
 ) -> Optional[List['TimeSlot']]:
     """
     Uses an LLM to choose the best slot from a list of candidates.
     """
+    print(f"\n[SCHEDULER] 🎯 Choosing best slot for task: '{task.description}'")
+    print(f"[SCHEDULER]   Duration: {task.duration_minutes} min")
+    print(f"[SCHEDULER]   Priority: {task.priority} ({task.priority_num})")
+    print(f"[SCHEDULER]   Constraints: {task.constraints}")
+    print(f"[SCHEDULER]   Available candidate slots: {len(candidates)}")
+
     prompt = """
     You are an expert scheduling assistant. Your goal is to select the single best time slot for a given task by analyzing the user's preferences and the context of their day.
 
@@ -257,12 +285,14 @@ def llm_choose_best_slot(
     candidate_context = []
     for i, window in enumerate(candidates):
         slot_id = f"slot_{chr(97 + i)}" # slot_a, slot_b, etc.
-        candidate_context.append({
+        slot_info = {
             "id": slot_id,
             "start_time": window[0].start.isoformat(),
             "end_time": window[-1].end.isoformat()
-        })
-    
+        }
+        candidate_context.append(slot_info)
+        print(f"[SCHEDULER]   Candidate {slot_id}: {slot_info['start_time']} - {slot_info['end_time']}")
+
     context = {
         "task": task.__dict__,
         "constraints": getattr(task, "constraints", []),
@@ -271,32 +301,51 @@ def llm_choose_best_slot(
         "candidate_slots": candidate_context,
         "today": datetime.now().date().isoformat()
     }
-    
+
+    print(f"[SCHEDULER] 🔄 Calling LLM to choose best slot...")
     response_str = call_llm(prompt, context)
+    print(f"[SCHEDULER] 📨 Received LLM response")
+
     try:
+        print(f"[SCHEDULER] 🔍 Parsing LLM response as JSON...")
         response_json = json.loads(response_str)
         best_id = response_json.get('best_slot_id')
         reasoning = response_json.get('reasoning')
-        if reasoning:
-            print(f"LLM Reasoning: {reasoning}")
+
+        print(f"[SCHEDULER] ✅ Successfully parsed JSON response")
+        print(f"[SCHEDULER]   Selected slot: {best_id}")
+        print(f"[SCHEDULER]   Reasoning: {reasoning}")
+
         # If no best_id returned (e.g., no feasible slot), signal no selection
         if not best_id or not isinstance(best_id, str) or not best_id.startswith("slot_"):
+            print(f"[SCHEDULER] ⚠️ Invalid or missing slot_id, returning None")
             return None
-        
+
         # Find the original slot window that corresponds to the chosen ID
         parts = best_id.split('_')
         if len(parts) != 2 or not parts[1]:
+            print(f"[SCHEDULER] ⚠️ Invalid slot_id format, returning None")
             return None
         letter = parts[1][0].lower()
         if not ('a' <= letter <= 'z'):
+            print(f"[SCHEDULER] ⚠️ Invalid slot letter, returning None")
             return None
         chosen_index = ord(letter) - 97
         if chosen_index < 0 or chosen_index >= len(candidates):
+            print(f"[SCHEDULER] ⚠️ Slot index {chosen_index} out of range (0-{len(candidates)-1}), returning None")
             return None
-        return candidates[chosen_index]
+
+        chosen_slot = candidates[chosen_index]
+        print(f"[SCHEDULER] 🎉 Selected slot #{chosen_index}: {chosen_slot[0].start.isoformat()} - {chosen_slot[-1].end.isoformat()}")
+        return chosen_slot
     except (json.JSONDecodeError, KeyError, IndexError, TypeError, AttributeError) as e:
-        print(f"Error parsing LLM response, defaulting to first candidate. Error: {e}")
-        return candidates[0]
+        print(f"[SCHEDULER] ❌ Error parsing LLM response: {e}")
+        print(f"[SCHEDULER] 📄 Raw response: {response_str[:500]}...")
+        print(f"[SCHEDULER] ⚠️ Defaulting to first candidate slot")
+        if candidates:
+            print(f"[SCHEDULER] 🔄 Using fallback slot: {candidates[0][0].start.isoformat()} - {candidates[0][-1].end.isoformat()}")
+            return candidates[0]
+        return None
 
 
 def get_existing_calendar(user_id: str, date_range: Tuple[datetime, datetime]) -> List[CalendarEvent]:
@@ -624,7 +673,7 @@ def schedule_tasks_for_next_seven_days(
             raise TypeError("Each task must be a Task or dict")
     
     # Determine user_id for DB-backed calendar fetch. Fall back to test UUID if absent.
-    user_id = preferences.get("user_id") or "84d559ab-1792-4387-aa30-06982c0d5dcc"
+    user_id = preferences.get("user_id") or "627eaf94-c969-4b31-9013-90aadbb5867a"
     
     # Compute 7-day range starting today
     today = datetime.now().date()

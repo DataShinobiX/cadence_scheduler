@@ -1,63 +1,37 @@
 from langgraph.graph import StateGraph, END
 from app.orchestration.state import AgentState
+from app.orchestration.agent_adapters import Agent1Adapter, Agent2Adapter, Agent3Adapter
 
 
-# This is your main file, as described in `SOLUTION_ARCHITECTURE.md` (Section 5).
-# Your job is to "wire up" the agents your teammates are building.
+# --- 1. Initialize Agent Adapters ---
+# These adapters connect your agents to the AgentState format
+agent1 = Agent1Adapter()
+agent2 = Agent2Adapter()
+agent3 = Agent3Adapter()
 
-# --- 1. Import Your Team's Agents ---
-# You'll need to import the *functions* or *classes* from the `app/agents/` folder.
-# Your teammates are building these files.
-# For now, we'll use placeholder functions so this code can be run.
-#
-# TODO: Replace these placeholders with your team's real imports, e.g.:
-from app.agents.task_decomposer import TaskDecomposerAgent
-from app.agents.scheduler_brain import SchedulerBrainAgent
-from app.agents.scheduler_brain import CalendarIntegratorAgent
-
-# ... etc.
 
 def task_decomposer_node(state: AgentState) -> AgentState:
-    """Placeholder for Agent 1: Task Decomposer"""
-    print("--- ORCHESTRATOR: Calling Agent 1 (Task Decomposer) ---")
-    # In the real code, you'd call your teammate's agent:
-    agent = TaskDecomposerAgent()
-    result_state = agent.execute(state)
-    return result_state
-
-    # # For now, we'll just pretend it worked and add mock data
-    # state["decomposed_tasks"] = [{"description": "Mock task 1"}, {"description": "Mock task 2"}]
-    # print(f"--- ORCHESTRATOR: Agent 1 Output: {state['decomposed_tasks']}")
-    # return state
+    """Agent 1: Task Decomposer"""
+    print("=" * 60)
+    print("ORCHESTRATOR: Calling Agent 1 (Task Decomposer)")
+    print("=" * 60)
+    return agent1.execute(state)
 
 
 def scheduler_brain_node(state: AgentState) -> AgentState:
-    """Placeholder for Agent 2: Scheduler Brain"""
-    print("--- ORCHESTRATOR: Calling Agent 2 (Scheduler Brain) ---")
-    # TODO: Call your teammate's agent
-    agent = SchedulerBrainAgent()
-    result_state = agent.execute(state)
-    return result_state
-
-    # # Mock data: Let's pretend it found no conflicts this time
-    # state["scheduling_plan"] = [{"task_id": "123", "start_time": "14:00"}]
-    # state["conflicts"] = []
-    # state["needs_user_input"] = False  # <-- Set this to True to test the conflict path
-    # print(f"--- ORCHESTRATOR: Agent 2 Output: Conflicts? {state['needs_user_input']}")
-    # return state
+    """Agent 2: Scheduler Brain"""
+    print("=" * 60)
+    print("ORCHESTRATOR: Calling Agent 2 (Scheduler Brain)")
+    print("=" * 60)
+    return agent2.execute(state)
 
 
 def calendar_integrator_node(state: AgentState) -> AgentState:
-    """Placeholder for Agent 3: Calendar Integrator"""
-    print("--- ORCHESTRATOR: Calling Agent 3 (Calendar Integrator) ---")
-    # TODO: Call your teammate's agent
-    agent = CalendarIntegratorAgent()
-    result_state = agent.execute(state)
-    return result_state
-
-    # state["scheduled_events"] = ["google-event-id-123"]
-    # print(f"--- ORCHESTRATOR: Agent 3 Output: {state['scheduled_events']}")
-    # return state
+    """Agent 3: Calendar Integrator"""
+    print("=" * 60)
+    print("ORCHESTRATOR: Calling Agent 3 (Calendar Integrator)")
+    print("=" * 60)
+    return agent3.execute(state)
 
 
 def ask_user_node(state: AgentState) -> AgentState:
