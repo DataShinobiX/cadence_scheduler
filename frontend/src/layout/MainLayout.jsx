@@ -1,4 +1,5 @@
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 import useNotification from '../hooks/useNotifications';
 import NotificationModal from '../components/NotificationModal';
 
@@ -10,6 +11,8 @@ const tabs = [
 
 export default function MainLayout({ children }) {
   const location = useLocation();
+  const navigate = useNavigate();
+  const { user, logout } = useAuth();
 
   const {
     isOpen,
@@ -19,10 +22,29 @@ export default function MainLayout({ children }) {
     closeNotification,
   } = useNotification();
 
+  const handleLogout = async () => {
+    await logout();
+    navigate('/login');
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
       <header className="bg-white shadow p-4 flex justify-between items-center">
         <h1 className="text-xl font-bold text-gray-800">UniGames Assistant</h1>
+
+        <div className="flex items-center gap-4">
+          {user && (
+            <span className="text-sm text-gray-600">
+              Welcome, <strong>{user.name || user.email}</strong>
+            </span>
+          )}
+          <button
+            onClick={handleLogout}
+            className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-medium rounded-md transition-colors"
+          >
+            Logout
+          </button>
+        </div>
       </header>
       <nav className="bg-gray-100 border-b px-4 py-2 flex gap-4">
         {tabs.map(tab => (
