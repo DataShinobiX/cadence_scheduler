@@ -4,19 +4,118 @@ from typing import Optional, List, Dict
 import json
 from datetime import datetime, date, time, timedelta
 from typing import List, Dict, Tuple
+from uuid import uuid4
+import os
+from datetime import timezone
 
 
 @dataclass
 class Task:
-    id: str
-    description: str
-    duration_minutes: int
-    priority: int  # e.g., 1 (high) to 5 (low)
+    # Core identifiers
+    id: str = field(default_factory=lambda: str(uuid4()))
+    kind: Optional[str] = None
+    title: Optional[str] = None
+    description: Optional[str] = None
+    # Time and duration
+    duration_minutes: Optional[int] = None
+    start: Optional[datetime] = None
+    end: Optional[datetime] = None
     deadline: Optional[datetime] = None
+    # Scheduling metadata
+    priority: Optional[str] = None
+    priority_num: int = 3  # e.g., 1 (high) to 5 (low)
     location: Optional[str] = None
     category: Optional[str] = None
+    constraints: List[str] = field(default_factory=list)
+    contacts: List[str] = field(default_factory=list)
+    notes: Optional[str] = None
+    confidence: Optional[float] = None
     # Metadata for advanced scoring
-    metadata: Dict = field(default_factory=dict) 
+    metadata: Dict = field(default_factory=dict)
+
+    @classmethod
+    def from_json(cls, data: Dict) -> "Task":
+        """
+        Create a Task from a decomposed task JSON object as in app/agents/test_tasks.json.
+        """
+        def _parse_dt(value: Optional[str]) -> Optional[datetime]:
+            if not value:
+                return None
+            try:
+                return datetime.fromisoformat(value)
+            except Exception:
+                return None
+
+        def _infer_priority_num(priority_label: Optional[str], fallback: int = 3) -> int:
+            if not priority_label:
+                return fallback
+            mapping = {
+                "highest": 1,
+                "very high": 1,
+                "high": 1,
+                "medium": 3,
+                "normal": 3,
+                "low": 5,
+                "very low": 5,
+                "lowest": 5,
+            }
+            # Normalize label
+            label = str(priority_label).strip().lower()
+            return mapping.get(label, fallback)
+
+        title = data.get("title")
+        description = data.get("description") or title
+        start_dt = _parse_dt(data.get("start"))
+        end_dt = _parse_dt(data.get("end"))
+        # Normalize to naive (UTC) if timezone-aware
+        if start_dt and start_dt.tzinfo is not None:
+            start_dt = start_dt.astimezone(timezone.utc).replace(tzinfo=None)
+        if end_dt and end_dt.tzinfo is not None:
+            end_dt = end_dt.astimezone(timezone.utc).replace(tzinfo=None)
+        # Default duration if not provided to ensure scheduling can proceed
+        inferred_duration = data.get("duration_minutes") if data.get("duration_minutes") is not None else 60
+
+        # Priority fields: accept both "priority" (label) and "priority_num" (1-5)
+        priority_label = data.get("priority")
+        priority_num_raw = data.get("priority_num")
+        if priority_num_raw is None:
+            inferred_priority_num = _infer_priority_num(priority_label, 3)
+        else:
+            try:
+                inferred_priority_num = int(priority_num_raw)
+            except (TypeError, ValueError):
+                inferred_priority_num = _infer_priority_num(priority_label, 3)
+
+        return cls(
+            kind=data.get("kind"),
+            title=title,
+            description=description,
+            duration_minutes=inferred_duration,
+            start=start_dt,
+            end=end_dt,
+            # Treat 'end' as a soft deadline if provided
+            deadline=end_dt,
+            priority=priority_label,
+            priority_num=inferred_priority_num,
+            location=data.get("location"),
+            category=data.get("category"),
+            constraints=data.get("constraints") or [],
+            contacts=data.get("contacts") or [],
+            notes=data.get("notes"),
+            confidence=data.get("confidence"),
+            metadata={}
+        )
+
+
+def load_tasks_from_json() -> List[Task]:
+    """
+    Load decomposed tasks from app/agents/test_tasks.json and convert to Task objects.
+    """
+    json_path = os.path.join(os.path.dirname(__file__), "test_tasks.json")
+    with open(json_path, "r", encoding="utf-8") as f:
+        payload = json.load(f)
+    decomposed = payload.get("decomposed_tasks", [])
+    return [Task.from_json(item) for item in decomposed]
 
 @dataclass
 class CalendarEvent:
@@ -135,7 +234,7 @@ def llm_choose_best_slot(
     candidates: List[List['TimeSlot']], 
     preferences: Dict, 
     already_scheduled: List[Dict]
-) -> List['TimeSlot']:
+) -> Optional[List['TimeSlot']]:
     """
     Uses an LLM to choose the best slot from a list of candidates.
     """
@@ -149,8 +248,9 @@ def llm_choose_best_slot(
     - Grouping tasks by category or location to minimize context switching.
     - Placing tasks with deadlines appropriately.
     - Respecting implicit preferences (e.g., exercise after work).
+    - STRICTLY RESPECT the task's explicit constraints (e.g., "after 5pm", "by EOD on 2025-11-10", "time flexible"). Do not select a slot that violates any constraint.
 
-    Respond ONLY with a JSON object containing the 'best_slot_id' and a brief 'reasoning'.
+    Respond ONLY with a JSON object containing the 'best_slot_id' and a brief 'reasoning'. If multiple slots satisfy constraints, pick the earliest feasible one.
     """
 
     # Format the candidate slots for the LLM
@@ -159,29 +259,42 @@ def llm_choose_best_slot(
         slot_id = f"slot_{chr(97 + i)}" # slot_a, slot_b, etc.
         candidate_context.append({
             "id": slot_id,
-            "start_time": window[0].start,
-            "end_time": window[-1].end
+            "start_time": window[0].start.isoformat(),
+            "end_time": window[-1].end.isoformat()
         })
     
     context = {
         "task": task.__dict__,
+        "constraints": getattr(task, "constraints", []),
         "user_preferences": preferences,
         "already_scheduled": already_scheduled,
-        "candidate_slots": candidate_context
+        "candidate_slots": candidate_context,
+        "today": datetime.now().date().isoformat()
     }
-
-    print(f"ca")
     
     response_str = call_llm(prompt, context)
     try:
         response_json = json.loads(response_str)
-        best_id = response_json['best_slot_id']
-        print(f"LLM Reasoning: {response_json['reasoning']}")
+        best_id = response_json.get('best_slot_id')
+        reasoning = response_json.get('reasoning')
+        if reasoning:
+            print(f"LLM Reasoning: {reasoning}")
+        # If no best_id returned (e.g., no feasible slot), signal no selection
+        if not best_id or not isinstance(best_id, str) or not best_id.startswith("slot_"):
+            return None
         
         # Find the original slot window that corresponds to the chosen ID
-        chosen_index = ord(best_id.split('_')[1]) - 97
+        parts = best_id.split('_')
+        if len(parts) != 2 or not parts[1]:
+            return None
+        letter = parts[1][0].lower()
+        if not ('a' <= letter <= 'z'):
+            return None
+        chosen_index = ord(letter) - 97
+        if chosen_index < 0 or chosen_index >= len(candidates):
+            return None
         return candidates[chosen_index]
-    except (json.JSONDecodeError, KeyError, IndexError) as e:
+    except (json.JSONDecodeError, KeyError, IndexError, TypeError, AttributeError) as e:
         print(f"Error parsing LLM response, defaulting to first candidate. Error: {e}")
         return candidates[0]
 
@@ -225,14 +338,40 @@ def get_existing_calendar(user_id: str, date_range: Tuple[datetime, datetime]) -
     ]
 
 
+def get_existing_calendar_from_db(user_id: str, date_range: Tuple[datetime, datetime]) -> List[CalendarEvent]:
+    """
+    DB: Fetches all calendar events for the user within a date range.
+    Uses repository in app/db/calendar_events.py to query PostgreSQL.
+    """
+    from app.db.calendar_events import fetch_calendar_events
+
+    start_dt, end_dt = date_range
+    rows = fetch_calendar_events(user_id, start_dt, end_dt)
+    events: List[CalendarEvent] = []
+
+    for row in rows:
+        events.append(
+            CalendarEvent(
+                summary=(row.get("summary") or "").strip(),
+                start=row.get("start_datetime"),
+                end=row.get("end_datetime"),
+                is_movable=bool(row.get("is_movable", True)),
+                is_external=bool(row.get("is_external", True)),
+            )
+        )
+
+    return events
+
+
 def test_step_1():
     print("\n--- Testing Step 1: Get Existing Calendar ---")
-    user_id = "user-123"
+    user_id = "84d559ab-1792-4387-aa30-06982c0d5dcc"
     today = datetime.now()
-    start_of_day = datetime.combine(today, time.min)
-    end_of_day = datetime.combine(today, time.max)
+    start_dt = datetime.combine(today, time.min)
+    end_dt = datetime.combine(today + timedelta(days=7), time.max)
     
-    events = get_existing_calendar(user_id, (start_of_day, end_of_day))
+    # events = get_existing_calendar(user_id, (start_of_day, end_of_day))
+    events = get_existing_calendar_from_db(user_id, (start_dt, end_dt))
     
     print(f"Found {len(events)} events:")
     for event in events:
@@ -332,7 +471,6 @@ def test_step_2():
         if "12:45" <= slot_time < "14:15": # Check around lunch and team standup
              print(f"Slot {slot_time}-{slot.end.strftime('%H:%M')}: Available = {slot.available}")
 
-# scheduler_agent.py (append this code)
 
 # --- Step 3 & 4: Intelligent Scheduling & Conflict Handling ---
 
@@ -355,114 +493,6 @@ def find_candidate_slots(
     return candidate_windows
 
 
-# def calculate_slot_score(
-#     task: Task, 
-#     slot_window: List[TimeSlot], 
-#     preferences: Dict, 
-#     already_scheduled: List[Dict]
-# ) -> int:
-#     """
-#     Multi-factor scoring function as described in the prompt.
-#     """
-#     score = 100  # Start with a base score
-#     start_time = slot_window[0].start
-
-#     # Factor 1: Time preference match (example: gym in evening)
-#     if task.category == "exercise" and start_time.hour >= 17:
-#         score += 20
-    
-#     # Factor 2: Energy-task match
-#     if task.metadata.get("energy_required") == "high":
-#         productive_time = preferences.get("most_productive_time", "morning")
-#         if productive_time == "morning" and start_time.hour < 12:
-#             score += 15
-#         elif productive_time == "afternoon" and 12 <= start_time.hour < 17:
-#             score += 15
-
-#     # Factor 3: Minimize context switching (group similar tasks)
-#     if already_scheduled:
-#         last_task = already_scheduled[-1]
-#         # Check if the new task is close in time to the last one and has the same category
-#         last_task_end_time = datetime.fromisoformat(last_task['end_time'])
-#         time_gap_minutes = (start_time - last_task_end_time).total_seconds() / 60
-#         if last_task.get("category") == task.category and time_gap_minutes <= 30:
-#             score += 10
-
-#     # Factor 4: Deadline urgency
-#     if task.deadline:
-#         time_until_deadline = (task.deadline - start_time).total_seconds() / 3600
-#         if time_until_deadline < 24:
-#             score += 30  # High urgency
-#         elif time_until_deadline < 72:
-#             score += 10 # Medium urgency
-
-#     return score
-
-# def schedule_tasks_intelligently(
-#     tasks: List[Task],
-#     availability: List[TimeSlot],
-#     preferences: Dict
-# ) -> Dict:
-#     """The main scheduling algorithm."""
-    
-#     # 1. Sort tasks by priority and then by deadline
-#     sorted_tasks = sorted(
-#         tasks,
-#         key=lambda t: (t.priority, t.deadline or datetime.max)
-#     )
-
-#     scheduled_tasks = []
-#     conflicts = []
-
-#     for task in sorted_tasks:
-#         # 2. Find all possible candidate slots
-#         candidates = find_candidate_slots(task, availability)
-
-#         if not candidates:
-#             # CONFLICT: No available slots of the required duration
-#             conflicts.append({
-#                 "task": task.description,
-#                 "reason": f"No available time slots found for the required duration of {task.duration_minutes} minutes.",
-#                 "suggestion": "Consider shortening the task, moving other events, or scheduling on another day."
-#             })
-#             continue
-
-#         # 3. Score each candidate slot
-#         scored_candidates = []
-#         for slot_window in candidates:
-#             score = calculate_slot_score(task, slot_window, preferences, scheduled_tasks)
-#             scored_candidates.append({"window": slot_window, "score": score})
-        
-#         # 4. Select the best slot (highest score)
-#         best_candidate = max(scored_candidates, key=lambda x: x['score'])
-#         best_slot_window = best_candidate['window']
-        
-#         # 5. Schedule the task
-#         start_time = best_slot_window[0].start
-#         end_time = best_slot_window[-1].end
-        
-#         scheduled_tasks.append({
-#             "task_id": task.id,
-#             "description": task.description,
-#             "category": task.category,
-#             "date": start_time.date().isoformat(),
-#             "start_time": start_time.isoformat(),
-#             "end_time": end_time.isoformat(),
-#             "duration_minutes": task.duration_minutes,
-#             "location": task.location,
-#         })
-
-#         # 6. Update availability matrix
-#         mark_slots_unavailable(availability, start_time, end_time)
-
-#     return {
-#         "scheduled_plan": scheduled_tasks,
-#         "conflicts": conflicts,
-#         "needs_user_input": len(conflicts) > 0
-#     }
-
-
-
 def schedule_tasks_intelligently(
     tasks: List[Task],
     availability: List[TimeSlot],
@@ -470,10 +500,14 @@ def schedule_tasks_intelligently(
 ) -> Dict:
     """The main scheduling algorithm, now powered by an LLM for decisions."""
     
-    sorted_tasks = sorted(
-        tasks,
-        key=lambda t: (t.priority, t.deadline or datetime.max)
-    )
+    def _to_naive_utc(dt: Optional[datetime]) -> Optional[datetime]:
+        if dt is None:
+            return None
+        if dt.tzinfo is None:
+            return dt
+        return dt.astimezone(timezone.utc).replace(tzinfo=None)
+
+    sorted_tasks = sorted(tasks, key=lambda t: (t.priority_num, _to_naive_utc(t.deadline) or datetime.max))
 
     scheduled_tasks = []
     conflicts = []
@@ -494,6 +528,13 @@ def schedule_tasks_intelligently(
         # ----------------------------------------------------
         print(f"\nAsking LLM to choose best slot for: '{task.description}'")
         best_slot_window = llm_choose_best_slot(task, candidates, preferences, scheduled_tasks)
+        if best_slot_window is None:
+            conflicts.append({
+                "task": task.description,
+                "reason": "LLM could not identify a feasible slot that satisfies constraints and availability.",
+                "suggestion": "Expand the scheduling window, adjust constraints, or provide alternative times."
+            })
+            continue
         
         start_time = best_slot_window[0].start
         end_time = best_slot_window[-1].end
@@ -522,13 +563,17 @@ def test_step_3_and_4():
     print("\n--- Testing Step 3 & 4: Intelligent Scheduling ---")
     
     # --- Setup mock data ---
-    user_id = "user-123"
+    user_id = "84d559ab-1792-4387-aa30-06982c0d5dcc"
     today = datetime.now().date()
-    start_of_day = datetime.combine(today, time.min)
-    end_of_day = datetime.combine(today, time.max)
+    start_dt = datetime.combine(today, time.min)
+    end_dt = datetime.combine(today + timedelta(days=7), time.max)
     
     # Get calendar and build availability
-    events = get_existing_calendar(user_id, (start_of_day, end_of_day))
+    # events = get_existing_calendar(user_id, (start_dt, end_dt))
+    events = get_existing_calendar_from_db(user_id, (start_dt, end_dt))
+    print(f"Found {len(events)} events:")
+    for event in events:
+        print(f"- {event.summary} from {event.start.strftime('%H:%M')} to {event.end.strftime('%H:%M')} (Movable: {event.is_movable})")
     prefs = {
         "work_hours_start": "09:00",
         "work_hours_end": "18:00",
@@ -538,40 +583,8 @@ def test_step_3_and_4():
     }
     availability_slots = build_availability_matrix(today, events, prefs)
     
-    # Define tasks to be scheduled
-    tasks_to_schedule = [
-        Task(
-            id="task-1",
-            description="Draft Q4 report",
-            duration_minutes=90,
-            priority=1, # High priority
-            category="work",
-            metadata={"energy_required": "high"}
-        ),
-        Task(
-            id="task-2",
-            description="Team Brainstorm Session Prep",
-            duration_minutes=45,
-            priority=2,
-            category="work",
-            metadata={"energy_required": "medium"}
-        ),
-        Task(
-            id="task-3",
-            description="Go for a run",
-            duration_minutes=60,
-            priority=3,
-            category="exercise"
-        ),
-        Task( # This task should cause a conflict
-            id="task-4",
-            description="Plan entire 2025 company strategy",
-            duration_minutes=300, # 5 hours
-            priority=1,
-            category="work",
-            metadata={"energy_required": "high"}
-        )
-    ]
+    # Define tasks to be scheduled by loading from JSON
+    tasks_to_schedule = load_tasks_from_json()
     
     # --- Run the scheduler ---
     result = schedule_tasks_intelligently(tasks_to_schedule, availability_slots, prefs)
@@ -586,3 +599,47 @@ if __name__ == "__main__":
     test_step_1()
     test_step_2()
     test_step_3_and_4()
+
+def schedule_tasks_for_next_seven_days(
+    tasks: List[Dict] | List[Task],
+    preferences: Dict
+) -> Dict:
+    """
+    Orchestrator-facing API.
+    
+    - Accepts tasks (either list of dicts in decomposed form or List[Task])
+    - Accepts user preferences dict (should include 'user_id' if using DB-backed availability)
+    - Internally fetches the user's calendar availability for the next 7 days
+    - Returns the scheduling result dict with keys:
+        { 'scheduled_plan': [...], 'conflicts': [...], 'needs_user_input': bool }
+    """
+    # Normalize tasks to Task objects
+    normalized_tasks: List[Task] = []
+    for t in tasks:
+        if isinstance(t, Task):
+            normalized_tasks.append(t)
+        elif isinstance(t, dict):
+            normalized_tasks.append(Task.from_json(t))
+        else:
+            raise TypeError("Each task must be a Task or dict")
+    
+    # Determine user_id for DB-backed calendar fetch. Fall back to test UUID if absent.
+    user_id = preferences.get("user_id") or "84d559ab-1792-4387-aa30-06982c0d5dcc"
+    
+    # Compute 7-day range starting today
+    today = datetime.now().date()
+    start_dt = datetime.combine(today, time.min)
+    end_dt = datetime.combine(today + timedelta(days=7), time.max)
+    
+    # Fetch existing events from DB within the 7-day range
+    events = get_existing_calendar_from_db(user_id, (start_dt, end_dt))
+    
+    # Build availability across the next 7 days and flatten
+    availability: List[TimeSlot] = []
+    for day_offset in range(0, 7):
+        target_date = today + timedelta(days=day_offset)
+        day_slots = build_availability_matrix(target_date, events, preferences)
+        availability.extend(day_slots)
+    
+    # Run the scheduler
+    return schedule_tasks_intelligently(normalized_tasks, availability, preferences)
