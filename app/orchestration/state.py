@@ -6,7 +6,6 @@ This is the shared state that flows between all agents in the LangGraph workflow
 from typing import TypedDict, List, Optional, Dict, Any
 from datetime import datetime
 
-
 class AgentState(TypedDict):
     """
     Shared state for all agents in the scheduling workflow.

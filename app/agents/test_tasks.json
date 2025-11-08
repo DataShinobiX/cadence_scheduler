@@ -1,0 +1,63 @@
+{
+    "decomposed_tasks": [
+      {
+        "kind": "activity",
+        "title": "Finish process pitch deck",
+        "start": null,
+        "end": "2025-11-10T23:59:00+01:00",
+        "duration_minutes": null,
+        "location": null,
+        "constraints": [
+          "before EOD on 2025-11-10"
+        ],
+        "contacts": [],
+        "notes": "Must be completed by end of day today; exact start time unknown.",
+        "confidence": 0.9,
+        "priority": "high",
+        "priority_num": 1
+      },
+      {
+        "kind": "activity",
+        "title": "Gym",
+        "start": null,
+        "end": null,
+        "duration_minutes": null,
+        "location": null,
+        "constraints": [
+          "after 5pm today"
+        ],
+        "contacts": [],
+        "notes": "User wants to go to gym after 5pm; exact time and duration unknown.",
+        "confidence": 0.8,
+        "priority": "medium",
+        "priority_num": 2
+      },
+      {
+        "kind": "activity",
+        "title": "Call with Bob to discuss budget",
+        "start": null,
+        "end": null,
+        "duration_minutes": 30,
+        "location": null,
+        "constraints": [
+          "sometime during the week of 2025-11-10"
+        ],
+        "contacts": [
+          "Bob"
+        ],
+        "notes": "User requested a 30-minute call with Bob this week; exact time unknown.",
+        "confidence": 0.8,
+        "priority": "high",
+        "priority_num": 1
+      }
+    ],
+    "extracted_contacts": [
+      "Bob"
+    ],
+    "time_phrases": [
+      "today",
+      "after 5pm",
+      "sometime this week",
+      "before EOD"
+    ]
+  }
