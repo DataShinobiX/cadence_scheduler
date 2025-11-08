@@ -156,7 +156,7 @@ def call_llm(prompt: str, context: Dict) -> str:
     model_name = "gpt-5-mini"
     api_key = "sk-aU7KLAifP85EWxg4J7NFJg"
     base_url = "https://fj7qg3jbr3.execute-api.eu-west-1.amazonaws.com/v1"
-    temperature = 0.2
+    temperature = 1.0
 
     print(f"[LLM] 📋 Configuration:")
     print(f"[LLM]   Model: {model_name}")
@@ -186,7 +186,8 @@ def call_llm(prompt: str, context: Dict) -> str:
         llm = ChatOpenAI(
             model=model_name,
             api_key=api_key,
-            base_url=base_url
+            base_url=base_url,
+            temperature=temperature
         )
         print(f"[LLM] ✅ LangChain ChatOpenAI initialized successfully")
     except Exception as exc:
@@ -202,7 +203,7 @@ def call_llm(prompt: str, context: Dict) -> str:
         print(f"[LLM] ⚠️ Returning heuristic fallback response")
         return json.dumps(
             {
-                "best_slot_id": "slot_a",
+                "best_slot_id": "slot_1",
                 "reasoning": "Heuristic fallback: chose earliest available slot.",
             }
         )
@@ -245,7 +246,7 @@ def call_llm(prompt: str, context: Dict) -> str:
         print(f"[LLM] ⚠️ Falling back to heuristic response")
         return json.dumps(
             {
-                "best_slot_id": "slot_a",
+                "best_slot_id": "slot_1",
                 "reasoning": "Heuristic fallback after LLM error: earliest slot.",
             }
         )
@@ -284,7 +285,7 @@ def llm_choose_best_slot(
     # Format the candidate slots for the LLM
     candidate_context = []
     for i, window in enumerate(candidates):
-        slot_id = f"slot_{chr(97 + i)}" # slot_a, slot_b, etc.
+        slot_id = f"slot_{i + 1}" # slot_1, slot_2, etc.
         slot_info = {
             "id": slot_id,
             "start_time": window[0].start.isoformat(),
@@ -326,11 +327,11 @@ def llm_choose_best_slot(
         if len(parts) != 2 or not parts[1]:
             print(f"[SCHEDULER] ⚠️ Invalid slot_id format, returning None")
             return None
-        letter = parts[1][0].lower()
-        if not ('a' <= letter <= 'z'):
-            print(f"[SCHEDULER] ⚠️ Invalid slot letter, returning None")
+        suffix = parts[1]
+        if not suffix.isdigit():
+            print(f"[SCHEDULER] ⚠️ Invalid slot number, returning None")
             return None
-        chosen_index = ord(letter) - 97
+        chosen_index = int(suffix) - 1
         if chosen_index < 0 or chosen_index >= len(candidates):
             print(f"[SCHEDULER] ⚠️ Slot index {chosen_index} out of range (0-{len(candidates)-1}), returning None")
             return None
