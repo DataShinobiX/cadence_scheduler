@@ -262,7 +262,7 @@ class Task(Base):
 ### Step 3: Initialize Database
 
 Create `scripts/init_db.py`:
-
+ 
 ```python
 from app.db.base import Base, engine
 from app.models.user import User
