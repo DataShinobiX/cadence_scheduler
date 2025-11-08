@@ -36,9 +36,8 @@ class TaskList:
     time_phrases: List[str]           # ["at 3pm","after 5pm","before EOD"]
 
 
-# 
+
 # Prompt (strict JSON; includes priority guidance)
-# 
 
 TASK_JSON_INSTRUCTIONS = """
 You are a planner that converts the user's free-text request into STRICT JSON.
@@ -88,10 +87,6 @@ Rules:
 Return ONLY valid JSON.
 """
 
-# ---------------------------
-# OpenAI adapter (LLM-first)
-# ---------------------------
-
 class OpenAIClient:
     """
     Minimal adapter for OpenAI-compatible Chat Completions API.
@@ -109,8 +104,6 @@ class OpenAIClient:
             model=self.model,
             messages=[{"role": "user", "content": prompt}],
             temperature=self.temperature,
-            # If your gateway supports it, you may uncomment:
-            # response_format={"type": "json_object"},
         )
         text = (resp.choices[0].message.content or "").strip()
 
@@ -124,10 +117,6 @@ class OpenAIClient:
         if not isinstance(data, dict):
             raise ValueError("LLM did not return a JSON object.")
         return data
-
-# ---------------------------
-# Agent (LLM-first; tiny normalization only)
-# ---------------------------
 
 class TaskDecomposerLLM:
     """
@@ -234,10 +223,6 @@ class TaskDecomposerLLM:
         return state
 
 
-# ---------------------------
-# CLI
-# ---------------------------
-
 def main():
     parser = argparse.ArgumentParser(description="LLM-first Task Decomposer (priority-aware)")
     parser.add_argument("--text", "-t", required=True, help="User input text (free-form)")
@@ -268,14 +253,14 @@ def main():
             except Exception as e:
                 raise SystemExit(f"--context is neither a file nor valid JSON: {e}")
 
-    # Init LLM and agent
+    
     llm = OpenAIClient(api_key=args.api_key, base_url=args.base_url, model=args.model, temperature=args.temperature)
     agent = TaskDecomposerLLM(llm=llm)
 
     state: Dict[str, Any] = {
         "raw_transcript": args.text,
         "now": args.now,
-        "context": ctx,  # NOTE: do not include profession here
+        "context": ctx,  
     }
 
     out = agent.execute(state)
