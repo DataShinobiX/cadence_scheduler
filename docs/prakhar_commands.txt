@@ -1,0 +1,21 @@
+### to see the postgres db and tables
+docker exec -it cadence_scheduler-db-1 psql -U scheduler_user -d scheduler_db
+## show all tables 
+\dt 
+
+## testing the task decomposition agent
+## rule based:
+python task_decomposer.py -t "I'm a student, lecture at 3pm." -p student --home home
+
+## llm based output:
+python task_decomposer.py -t "I'm a student, lecture at 3pm." -p student --home home --use-llm
+
+
+#Hi, good morning. It's Monday, November 10. I feel overwhelmed. I must finish the process pitch deck today, because it's EOD. I also really want to go to the gym, but only after 5pm. Oh, and can you find me a 30 minute slot for a call with Bob, sometimes this week to discuss the budget. And I guess, just let me know what my day looks like.
+python task_decomposer.py -t "Hi, good morning. It's Monday, November 10. I feel overwhelmed. I must finish the process pitch deck today, because it's EOD. I also really want to go to the gym, but only after 5pm. Oh, and can you find me a 30 minute slot for a call with Bob, sometimes this week to discuss the budget. And I guess, just let me know what my day looks like." -p student --home home --use-llm
+
+
+## version 2
+python task_decomposer.py -t "Lecture at 3pm at campus. I need to Text alex and email prof@uni.edu. Read after 6pm."
+
+python task_decomposer.py -t "Hi, good morning. It's Monday, November 10. I feel overwhelmed. I must finish the process pitch deck today, because it's EOD. I also really want to go to the gym, but only after 5pm. Oh, and can you find me a 30 minute slot for a call with Bob, sometimes this week to discuss the budget. And I guess, just let me know what my day looks like."
