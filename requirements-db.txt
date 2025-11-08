@@ -1,0 +1,5 @@
+# Database Setup Requirements
+# Install these to verify database setup: pip install -r requirements-db.txt
+
+psycopg2-binary==2.9.9
+redis==5.0.1
