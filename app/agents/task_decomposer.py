@@ -1,12 +1,4 @@
-# task_decomposer_llm.py
-# LLM-first task decomposer (single file).
-# - No rule-based fallback. The LLM decides task values.
-# - Adds priority + priority_num.
-# - Optional context envelope (no profession).
-# - Simple CLI.
-
 from __future__ import annotations
-
 import argparse
 import json
 import os
@@ -14,9 +6,6 @@ from dataclasses import dataclass, asdict
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Literal, Optional
 
-# ---------------------------
-# Models (dataclasses for zero extra deps)
-# ---------------------------
 
 Priority = Literal["high", "medium", "low"]
 TaskKind = Literal["activity", "travel"]
@@ -32,10 +21,9 @@ class Task:
     constraints: List[str] = None       # ["at 15:00", "after 17:00", "before EOD"]
     contacts: List[str] = None          # emails/phones/@handles tied to this task
     notes: str = ""
-    confidence: float = 0.6
-    # NEW:
-    priority: Priority = "medium"
-    priority_num: int = 2               # 1=high, 2=medium, 3=low
+    confidence: float = 0.4
+    priority: Priority = "low"
+    priority_num: int = 3               # 1=high, 2=medium, 3=low
 
     def __post_init__(self):
         if self.constraints is None: self.constraints = []
@@ -46,13 +34,11 @@ class TaskList:
     tasks: List[Task]
     contacts: List[str]               # globally extracted contacts (deduped)
     time_phrases: List[str]           # ["at 3pm","after 5pm","before EOD"]
-    # You can extend with diagnostics if needed
-    # diagnostics: Optional[Dict[str, Any]] = None
 
 
-# ---------------------------
+# 
 # Prompt (strict JSON; includes priority guidance)
-# ---------------------------
+# 
 
 TASK_JSON_INSTRUCTIONS = """
 You are a planner that converts the user's free-text request into STRICT JSON.
@@ -91,10 +77,12 @@ Rules:
   relevant task and also include a deduplicated list in top-level "contacts".
 - PRIORITY assignment:
   - "high" (priority_num=1): time-critical, external commitments, hard deadlines, interviews, flights,
-    exams, medical appointments, meetings with others, tasks due today, urgent follow-ups, or blockers.
+    exams, medical appointments, meetings with others, tasks due today, urgent follow-ups, or blockers. If something is an important task but no time frame is given, or it is excplicitly mentioned that it needs to be done today then, 
+    default to low priority.
   - "medium" (priority_num=2): important but somewhat flexible (study blocks before exam week, gym today,
-    grocery pick-up, preparation for tomorrow).
-  - "low" (priority_num=3): aspirational or flexible (reading for pleasure, optional errands).
+    grocery pick-up, preparation for tomorrow). 
+  - "low" (priority_num=3): aspirational or flexible (reading for pleasure, optional errands).If something is an important task but no time frame is given, 
+    default to low priority.
 - If you cannot infer a field, set it to null and add a helpful note in "notes".
 - Avoid hallucinations. Use only the information in the user's text and the optional context.
 Return ONLY valid JSON.
