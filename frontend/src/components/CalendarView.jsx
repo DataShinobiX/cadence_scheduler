@@ -95,51 +95,69 @@ export default function CalendarView() {
   const calendarDays = getCalendarDays();
 
   return (
-    <div className="border rounded-md p-6 bg-white shadow-sm">
+    <div className="border border-gray-200 rounded-2xl p-6 bg-white shadow-lg animate-fadeIn">
       {/* Calendar Header */}
       <div className="flex justify-between items-center mb-6">
         <button
           onClick={() => navigateMonth(-1)}
-          className="px-3 py-2 text-gray-600 hover:bg-gray-100 rounded-md transition-colors"
+          className="p-2 text-gray-600 hover:bg-blue-50 hover:text-blue-700 rounded-lg transition-all duration-200 transform hover:scale-110"
           aria-label="Previous month"
         >
-          ←
+          <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7"/>
+          </svg>
         </button>
         <div className="flex items-center gap-4">
-          <h3 className="text-xl font-semibold text-gray-800">{formatMonthYear()}</h3>
+          <h3 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
+            {formatMonthYear()}
+          </h3>
           <button
             onClick={goToToday}
-            className="px-3 py-1 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-md transition-colors"
+            className="px-4 py-2 text-sm bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-lg shadow-md transition-all duration-200 transform hover:scale-105 active:scale-95"
           >
             Today
           </button>
         </div>
         <button
           onClick={() => navigateMonth(1)}
-          className="px-3 py-2 text-gray-600 hover:bg-gray-100 rounded-md transition-colors"
+          className="p-2 text-gray-600 hover:bg-blue-50 hover:text-blue-700 rounded-lg transition-all duration-200 transform hover:scale-110"
           aria-label="Next month"
         >
-          →
+          <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7"/>
+          </svg>
         </button>
       </div>
 
       {/* Loading State */}
       {loading && (
-        <div className="text-center py-8 text-gray-600">
-          Loading calendar events...
+        <div className="flex flex-col items-center justify-center py-12 space-y-4">
+          <svg className="animate-spin h-12 w-12 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+          </svg>
+          <p className="text-gray-600 font-medium">Loading calendar events...</p>
         </div>
       )}
 
       {/* Error State */}
       {error && !loading && (
-        <div className="text-center py-8 text-red-600 bg-red-50 border border-red-200 rounded-md mb-4">
-          {error}
-          <button
-            onClick={loadCalendarEvents}
-            className="ml-4 px-3 py-1 text-sm bg-red-600 hover:bg-red-700 text-white rounded-md transition-colors"
-          >
-            Retry
-          </button>
+        <div className="p-5 bg-red-50 border-l-4 border-red-500 rounded-lg mb-4 animate-slideDown">
+          <div className="flex items-start gap-3">
+            <svg className="h-6 w-6 text-red-500 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd"/>
+            </svg>
+            <div className="flex-1">
+              <p className="text-red-800 font-semibold">Failed to load events</p>
+              <p className="text-red-700 text-sm mt-1">{error}</p>
+            </div>
+            <button
+              onClick={loadCalendarEvents}
+              className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-medium rounded-lg shadow-md transition-all duration-200 transform hover:scale-105"
+            >
+              Retry
+            </button>
+          </div>
         </div>
       )}
 
@@ -147,16 +165,16 @@ export default function CalendarView() {
       {!loading && (
         <>
           {/* Day Headers */}
-          <div className="grid grid-cols-7 gap-2 mb-2">
+          <div className="grid grid-cols-7 gap-2 mb-3">
             {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
-              <div key={day} className="text-center font-medium text-gray-600 py-2">
+              <div key={day} className="text-center font-bold text-gray-700 py-2 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg">
                 {day}
               </div>
             ))}
           </div>
 
           {/* Calendar Days */}
-          <div className="grid grid-cols-7 gap-2">
+          <div className="grid grid-cols-7 gap-3">
             {calendarDays.map((day, index) => {
               const dateKey = getDateKey(day);
               const dayEvents = dateKey ? (eventsByDate[dateKey] || []) : [];
@@ -165,42 +183,57 @@ export default function CalendarView() {
               return (
                 <div
                   key={index}
-                  className={`min-h-[100px] p-2 border rounded ${
+                  className={`min-h-[110px] p-3 border-2 rounded-xl transition-all duration-200 animate-scaleIn ${
                     day === null
-                      ? 'bg-gray-50 border-gray-100'
+                      ? 'bg-gray-50/50 border-gray-100'
                       : isTodayDate
-                      ? 'bg-blue-50 border-blue-300 border-2'
-                      : 'bg-white border-gray-200 hover:bg-gray-50'
-                  } transition-colors`}
+                      ? 'bg-gradient-to-br from-blue-50 to-indigo-50 border-blue-400 shadow-md'
+                      : 'bg-white border-gray-200 hover:border-blue-300 hover:shadow-md hover:scale-105'
+                  }`}
+                  style={{ animationDelay: `${index * 0.01}s` }}
                 >
                   {day !== null && (
                     <>
-                      <div
-                        className={`text-sm font-medium mb-1 ${
-                          isTodayDate ? 'text-blue-700' : 'text-gray-800'
-                        }`}
-                      >
-                        {day}
+                      <div className="flex items-center justify-between mb-2">
+                        <div
+                          className={`text-sm font-bold ${
+                            isTodayDate
+                              ? 'w-7 h-7 flex items-center justify-center bg-gradient-to-br from-blue-600 to-indigo-600 text-white rounded-full shadow-md'
+                              : 'text-gray-800'
+                          }`}
+                        >
+                          {day}
+                        </div>
+                        {dayEvents.length > 0 && (
+                          <div className="w-5 h-5 bg-blue-600 text-white text-xs rounded-full flex items-center justify-center font-bold shadow-sm">
+                            {dayEvents.length}
+                          </div>
+                        )}
                       </div>
-                      <div className="space-y-1">
+                      <div className="space-y-1.5">
                         {dayEvents.slice(0, 3).map((event, eventIndex) => (
                           <div
                             key={eventIndex}
-                            className={`text-xs p-1 rounded truncate ${
+                            className={`group text-xs p-2 rounded-lg shadow-sm transition-all duration-200 hover:scale-105 cursor-pointer ${
                               event.is_external
-                                ? 'bg-purple-100 text-purple-800'
-                                : 'bg-blue-100 text-blue-800'
+                                ? 'bg-gradient-to-br from-purple-100 to-purple-200 border border-purple-300 hover:from-purple-200 hover:to-purple-300'
+                                : 'bg-gradient-to-br from-blue-100 to-indigo-200 border border-blue-300 hover:from-blue-200 hover:to-indigo-300'
                             }`}
                             title={`${event.summary} - ${event.startTime} to ${event.endTime}`}
                           >
-                            <div className="font-medium truncate">{event.summary}</div>
-                            <div className="text-xs opacity-75">
-                              {event.startTime} - {event.endTime}
+                            <div className={`font-semibold truncate ${event.is_external ? 'text-purple-900' : 'text-blue-900'}`}>
+                              {event.summary}
+                            </div>
+                            <div className={`text-xs flex items-center gap-1 mt-0.5 ${event.is_external ? 'text-purple-700' : 'text-blue-700'}`}>
+                              <svg className="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                              </svg>
+                              <span>{event.startTime}</span>
                             </div>
                           </div>
                         ))}
                         {dayEvents.length > 3 && (
-                          <div className="text-xs text-gray-500 font-medium">
+                          <div className="text-xs text-gray-600 font-semibold bg-gray-100 px-2 py-1 rounded-md text-center">
                             +{dayEvents.length - 3} more
                           </div>
                         )}
@@ -213,27 +246,36 @@ export default function CalendarView() {
           </div>
 
           {/* Legend */}
-          <div className="mt-6 flex items-center gap-4 text-sm">
+          <div className="mt-6 flex items-center gap-6 text-sm bg-gradient-to-r from-blue-50 to-indigo-50 p-4 rounded-lg border border-blue-200">
             <div className="flex items-center gap-2">
-              <div className="w-4 h-4 bg-purple-100 border border-purple-300 rounded"></div>
-              <span className="text-gray-600">External Event</span>
+              <div className="w-4 h-4 bg-gradient-to-br from-purple-100 to-purple-200 border-2 border-purple-400 rounded shadow-sm"></div>
+              <span className="text-gray-700 font-medium">External Event</span>
             </div>
             <div className="flex items-center gap-2">
-              <div className="w-4 h-4 bg-blue-100 border border-blue-300 rounded"></div>
-              <span className="text-gray-600">Your Event</span>
+              <div className="w-4 h-4 bg-gradient-to-br from-blue-100 to-indigo-200 border-2 border-blue-400 rounded shadow-sm"></div>
+              <span className="text-gray-700 font-medium">Your Event</span>
             </div>
           </div>
 
           {/* Events Summary */}
           {events.length > 0 && (
-            <div className="mt-4 text-sm text-gray-600">
-              Showing {events.length} event{events.length !== 1 ? 's' : ''} for {formatMonthYear()}
+            <div className="mt-4 flex items-center gap-2 text-sm bg-green-50 border border-green-200 rounded-lg p-3">
+              <svg className="h-5 w-5 text-green-600" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd"/>
+              </svg>
+              <span className="text-green-800 font-medium">
+                Showing {events.length} event{events.length !== 1 ? 's' : ''} for {formatMonthYear()}
+              </span>
             </div>
           )}
 
           {!error && events.length === 0 && !loading && (
-            <div className="mt-4 text-center text-gray-500 py-4">
-              No events found for this month. Your Google Calendar events will appear here once synced.
+            <div className="mt-6 text-center py-8 bg-gray-50 border-2 border-dashed border-gray-300 rounded-lg">
+              <svg className="h-12 w-12 text-gray-400 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+              </svg>
+              <p className="text-gray-600 font-medium">No events this month</p>
+              <p className="text-gray-500 text-sm mt-1">Your Google Calendar events will appear here once synced</p>
             </div>
           )}
         </>

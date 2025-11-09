@@ -1,8 +1,7 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import useNotification from '../hooks/useNotifications';
-import NotificationModal from '../components/NotificationModal';
+import { useToast } from '../components/ToastContainer';
 import { getUpcomingNotifications, getWeeklyHighlights } from '../services/notifications';
 
 const tabs = [
@@ -15,14 +14,7 @@ export default function MainLayout({ children }) {
   const location = useLocation();
   const navigate = useNavigate();
   const { user, logout } = useAuth();
-
-  const {
-    isOpen,
-    title,
-    message,
-    showNotification,
-    closeNotification,
-  } = useNotification();
+  const { showInfo } = useToast();
 
   useEffect(() => {
     let cancelled = false;
@@ -54,7 +46,7 @@ export default function MainLayout({ children }) {
           const highlight = await getWeeklyHighlights(userId);
           const msg = highlight?.message;
           if (!cancelled && msg) {
-            showNotification('This Week', msg);
+            showInfo(`This Week: ${msg}`, 8000);
             localStorage.setItem('notification_last_shown_at', String(Date.now()));
             return;
           }
@@ -65,7 +57,7 @@ export default function MainLayout({ children }) {
         const list = await getUpcomingNotifications(userId, 7);
         if (!cancelled && list?.notifications?.length) {
           const first = list.notifications[0];
-          showNotification(first.title || 'Upcoming', first.message || 'You have an upcoming event.');
+          showInfo(`${first.title || 'Upcoming'}: ${first.message || 'You have an upcoming event.'}`, 8000);
           localStorage.setItem('notification_last_shown_at', String(Date.now()));
         }
       } catch (e) {
@@ -77,7 +69,7 @@ export default function MainLayout({ children }) {
       cancelled = true;
       cancelScheduled && cancelScheduled();
     };
-  }, [user, showNotification]);
+  }, [user, showInfo]);
 
   const handleLogout = async () => {
     await logout();
@@ -85,46 +77,54 @@ export default function MainLayout({ children }) {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col">
-      <header className="bg-white shadow p-4 flex justify-between items-center">
-        <h1 className="text-xl font-bold text-gray-800">UniGames Assistant</h1>
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50 flex flex-col">
+      <header className="bg-white border-b border-gray-200 shadow-sm p-4 flex justify-between items-center backdrop-blur-sm bg-white/95 sticky top-0 z-40">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-lg flex items-center justify-center shadow-md">
+            <svg className="h-6 w-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+            </svg>
+          </div>
+          <h1 className="text-xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
+            UniGames Assistant
+          </h1>
+        </div>
 
         <div className="flex items-center gap-4">
           {user && (
-            <span className="text-sm text-gray-600">
-              Welcome, <strong>{user.name || user.email}</strong>
-            </span>
+            <div className="hidden sm:flex items-center gap-2 px-4 py-2 bg-blue-50 rounded-lg border border-blue-200">
+              <svg className="h-5 w-5 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd"/>
+              </svg>
+              <span className="text-sm text-blue-900 font-medium">
+                {user.name || user.email}
+              </span>
+            </div>
           )}
           <button
             onClick={handleLogout}
-            className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-medium rounded-md transition-colors"
+            className="px-4 py-2 bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white text-sm font-medium rounded-lg shadow-md transition-all duration-200 transform hover:scale-105 active:scale-95"
           >
             Logout
           </button>
         </div>
       </header>
-      <nav className="bg-gray-100 border-b px-4 py-2 flex gap-4">
+      <nav className="bg-white/80 backdrop-blur-sm border-b border-gray-200 px-4 py-3 flex gap-2 shadow-sm sticky top-16 z-30">
         {tabs.map(tab => (
           <Link
             key={tab.path}
             to={tab.path}
-            className={`px-3 py-2 rounded-md text-sm font-medium ${
+            className={`px-4 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 transform ${
               location.pathname === tab.path
-                ? 'bg-blue-600 text-white'
-                : 'text-gray-700 hover:bg-gray-200'
+                ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-md scale-105'
+                : 'text-gray-700 hover:bg-blue-50 hover:text-blue-700 hover:scale-105'
             }`}
           >
             {tab.name}
           </Link>
         ))}
       </nav>
-      <main className="flex-1 p-6">{children}</main>
-      <NotificationModal
-        isOpen={isOpen}
-        onClose={closeNotification}
-        title={title}
-        message={message}
-      />
+      <main className="flex-1 p-6 animate-fadeIn">{children}</main>
     </div>
   );
 }
