@@ -1,4 +1,4 @@
-# AI Life Assistant
+# Circuit - AI Digital Assistant 
 
 An intelligent scheduling assistant that truly understands your daily life, not just your schedule. By weaving together time, location, and context, it anticipates your needs: suggesting a meal after a long meeting, reminding you to leave early when traffic builds, or clearing your calendar for focused work. It learns your habits through seamless app integrations, becoming a smart, proactive companion that helps you live better, not busier.
 
