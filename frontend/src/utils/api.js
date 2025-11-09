@@ -15,13 +15,27 @@ function getAuthToken() {
 /**
  * Handle API errors and redirect to login if unauthorized
  */
-function handleApiError(response) {
+async function handleApiError(response, skipLogout = false) {
   if (response.status === 401) {
-    // Token expired or invalid - clear auth and redirect
-    localStorage.removeItem('session_token');
-    localStorage.removeItem('user');
-    window.location.href = '/login';
-    throw new Error('Session expired. Please login again.');
+    // Check if it's a calendar-not-connected error
+    try {
+      const errorData = await response.clone().json();
+      if (errorData.detail && errorData.detail.includes('Google Calendar not connected')) {
+        // Don't logout - just throw the error
+        throw new Error(errorData.detail);
+      }
+    } catch (e) {
+      // If we can't parse JSON, continue with normal 401 handling
+    }
+
+    // Only logout if not skipped (for calendar errors)
+    if (!skipLogout) {
+      // Token expired or invalid - clear auth and redirect
+      localStorage.removeItem('session_token');
+      localStorage.removeItem('user');
+      window.location.href = '/login';
+      throw new Error('Session expired. Please login again.');
+    }
   }
 
   if (!response.ok) {
@@ -52,7 +66,7 @@ export async function uploadAudio(audioBlob) {
     body: formData
   });
 
-  handleApiError(response);
+  await handleApiError(response);
 
   return response.json();
 }
@@ -74,7 +88,7 @@ export async function getCurrentUser() {
     }
   });
 
-  handleApiError(response);
+  await handleApiError(response);
 
   return response.json();
 }
@@ -104,7 +118,7 @@ export async function authenticatedFetch(endpoint, options = {}) {
     headers: defaultHeaders
   });
 
-  handleApiError(response);
+  await handleApiError(response);
 
   return response.json();
 }
