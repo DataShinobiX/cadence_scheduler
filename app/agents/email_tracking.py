@@ -34,12 +34,13 @@ class SimpleEmailSchedulerAdapter:
         api_key="sk-aU7KLAifP85EWxg4J7NFJg",
         base_url="https://fj7qg3jbr3.execute-api.eu-west-1.amazonaws.com/v1",
         model_name="gpt-5-mini",
-        temperature=1, 
+        temperature=1,
         default_duration_minutes=60
     ):
         self.credentials_file = credentials_file
         self.token_file = token_file
         self.service = None
+        self.user_id = None  # NEW: Store user_id for database token access
         self.default_duration_minutes = default_duration_minutes
         self.llm = ChatOpenAI(
             model=model_name,
@@ -48,12 +49,33 @@ class SimpleEmailSchedulerAdapter:
             temperature=temperature
         )
 
-    def _build_gmail_service(self):
+    def _build_gmail_service(self, user_id: Optional[str] = None):
+        """
+        Build Gmail service using database tokens (if user_id provided) or file tokens (fallback)
+
+        Args:
+            user_id: Optional user ID to fetch tokens from database
+
+        Returns:
+            Gmail service object
+        """
+        # NEW: Try database tokens first if user_id is provided
+        if user_id:
+            try:
+                from app.services.google_token_manager import GoogleTokenManager
+                token_mgr = GoogleTokenManager(user_id)
+                return token_mgr.get_gmail_service()
+            except Exception as e:
+                print(f"[EMAIL AGENT] ⚠️  Could not get Gmail service from database: {e}")
+                print(f"[EMAIL AGENT] 🔄 Falling back to file-based tokens...")
+
+        # Fallback: Use file-based tokens (for backward compatibility)
         creds = None
         if os.path.exists(self.token_file):
             creds = Credentials.from_authorized_user_file(self.token_file, SCOPES)
         if not creds or not creds.valid:
             if creds and creds.expired and creds.refresh_token:
+                print(f"[EMAIL AGENT] 🔄 Refreshing expired file-based token...")
                 creds.refresh(Request())
             else:
                 if not os.path.exists(self.credentials_file):
@@ -65,7 +87,8 @@ class SimpleEmailSchedulerAdapter:
         return build('gmail', 'v1', credentials=creds)
 
     def analyze_and_prepare_for_scheduler(self, query='is:unread newer_than:1d', max_results=10):
-        self.service = self._build_gmail_service()
+        # NEW: Use user_id if available for database tokens
+        self.service = self._build_gmail_service(user_id=self.user_id)
         results = self.service.users().messages().list(
             userId='me',
             q=query,

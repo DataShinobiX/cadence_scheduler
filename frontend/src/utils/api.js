@@ -17,15 +17,29 @@ function getAuthToken() {
  */
 async function handleApiError(response, skipLogout = false) {
   if (response.status === 401) {
-    // Check if it's a calendar-not-connected error
+    // Check if it's a Google Calendar/Gmail not connected error
     try {
       const errorData = await response.clone().json();
-      if (errorData.detail && errorData.detail.includes('Google Calendar not connected')) {
-        // Don't logout - just throw the error
-        throw new Error(errorData.detail);
+      const detail = errorData.detail || '';
+
+      // Check for various Google connection errors
+      if (detail.includes('Google Calendar not connected') ||
+          detail.includes('Gmail not connected') ||
+          detail.includes('google_calendar_token') ||
+          detail.includes('Please connect your Google Calendar') ||
+          detail.includes('No calendar token found') ||
+          detail.includes('No gmail token found')) {
+        // Don't logout - throw error with status code so frontend can detect it
+        const error = new Error('401: ' + detail);
+        error.status = 401;
+        throw error;
       }
     } catch (e) {
-      // If we can't parse JSON, continue with normal 401 handling
+      // If it's already our custom error, re-throw it
+      if (e.status === 401) {
+        throw e;
+      }
+      // Otherwise, continue with normal 401 handling
     }
 
     // Only logout if not skipped (for calendar errors)

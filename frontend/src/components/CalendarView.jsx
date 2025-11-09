@@ -28,7 +28,13 @@ export default function CalendarView() {
       setEventsByDate(groupEventsByDate(response.events || []));
     } catch (err) {
       console.error('Error loading calendar events:', err);
-      setError('Failed to load calendar events. Please try again.');
+
+      // Check if it's a 401 error (Google not connected)
+      if (err.message && err.message.includes('401')) {
+        setError('google_not_connected');
+      } else {
+        setError('Failed to load calendar events. Please try again.');
+      }
     } finally {
       setLoading(false);
     }
@@ -140,8 +146,50 @@ export default function CalendarView() {
         </div>
       )}
 
-      {/* Error State */}
-      {error && !loading && (
+      {/* Error State - Google Not Connected */}
+      {error === 'google_not_connected' && !loading && (
+        <div className="p-8 bg-gradient-to-br from-blue-50 to-indigo-50 border-2 border-blue-200 rounded-xl mb-4 animate-slideDown">
+          <div className="flex flex-col items-center text-center space-y-4">
+            <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center">
+              <svg className="h-10 w-10 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+              </svg>
+            </div>
+            <div>
+              <h3 className="text-xl font-bold text-gray-900 mb-2">
+                Connect Your Google Calendar
+              </h3>
+              <p className="text-gray-600 mb-4 max-w-md">
+                To view and manage your calendar events, connect your Google Calendar account.
+                This allows the app to sync your schedule and create events for you.
+              </p>
+            </div>
+            <button
+              onClick={() => {
+                const user = JSON.parse(localStorage.getItem('user') || '{}');
+                const userId = user.user_id;
+                if (userId) {
+                  window.location.href = `${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/api/auth/google/connect?user_id=${userId}`;
+                } else {
+                  alert('Please log in first');
+                }
+              }}
+              className="px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-semibold rounded-lg shadow-lg transition-all duration-200 transform hover:scale-105 active:scale-95 flex items-center gap-2"
+            >
+              <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M12.48 10.92v3.28h7.84c-.24 1.84-.853 3.187-1.787 4.133-1.147 1.147-2.933 2.4-6.053 2.4-4.827 0-8.6-3.893-8.6-8.72s3.773-8.72 8.6-8.72c2.6 0 4.507 1.027 5.907 2.347l2.307-2.307C18.747 1.44 16.133 0 12.48 0 5.867 0 .307 5.387.307 12s5.56 12 12.173 12c3.573 0 6.267-1.173 8.373-3.36 2.16-2.16 2.84-5.213 2.84-7.667 0-.76-.053-1.467-.173-2.053H12.48z"/>
+              </svg>
+              Connect Google Calendar
+            </button>
+            <p className="text-sm text-gray-500 mt-2">
+              You'll be redirected to Google to authorize access
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Error State - Other Errors */}
+      {error && error !== 'google_not_connected' && !loading && (
         <div className="p-5 bg-red-50 border-l-4 border-red-500 rounded-lg mb-4 animate-slideDown">
           <div className="flex items-start gap-3">
             <svg className="h-6 w-6 text-red-500 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">

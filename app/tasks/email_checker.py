@@ -27,30 +27,22 @@ def _get_db_connection():
     )
 
 
-def _get_default_user_id():
+def _get_all_users_with_gmail():
     """
-    Get the default user ID for single-user mode.
-    You can change this to a specific user_id or make it configurable.
+    Get all users who have Gmail tokens configured.
+    Returns list of user_ids that should have their emails checked.
     """
     conn = _get_db_connection()
     try:
         with conn.cursor() as cur:
-            # Get the first user, or create a default one
-            cur.execute("SELECT user_id FROM users LIMIT 1")
-            user = cur.fetchone()
-
-            if user:
-                return str(user['user_id'])
-
-            # No users found - create a default one
             cur.execute("""
-                INSERT INTO users (email, name, timezone, onboarding_completed)
-                VALUES ('default@scheduler.com', 'Default User', 'UTC', true)
-                RETURNING user_id
+                SELECT user_id, email
+                FROM users
+                WHERE gmail_token IS NOT NULL
+                ORDER BY email
             """)
-            new_user = cur.fetchone()
-            conn.commit()
-            return str(new_user['user_id'])
+            users = cur.fetchall()
+            return [(str(user['user_id']), user['email']) for user in users]
     finally:
         conn.close()
 
@@ -139,23 +131,81 @@ def _is_email_already_processed(gmail_message_id):
 
 
 @app.task(name='app.tasks.email_checker.check_emails_and_schedule')
-def check_emails_and_schedule():
+def check_emails_and_schedule(user_id: str):
     """
-    Background task that runs every 5 minutes.
-    Checks emails and automatically schedules tasks.
+    Background task to check emails for a SPECIFIC user.
+    This task should be triggered:
+    - When user logs in
+    - When user clicks "Sync Emails" button
+    - On-demand via API call
+
+    Args:
+        user_id: The UUID of the user to check emails for
     """
     print("\n" + "="*60)
-    print("[EMAIL TASK] 📧 Starting email check...")
+    print(f"[EMAIL TASK] 📧 Starting email check for user: {user_id}")
     print(f"[EMAIL TASK] ⏰ Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     print("="*60)
 
     try:
-        # Get user_id (single user mode)
-        user_id = _get_default_user_id()
-        print(f"[EMAIL TASK] 👤 User ID: {user_id}")
+        # Get user info
+        conn = _get_db_connection()
+        try:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    SELECT user_id, email, gmail_token
+                    FROM users
+                    WHERE user_id = %s::uuid
+                """, (user_id,))
+                user = cur.fetchone()
 
-        # Initialize email agent
-        print("[EMAIL TASK] 🔧 Initializing email agent...")
+                if not user:
+                    print(f"[EMAIL TASK] ❌ User not found: {user_id}")
+                    return {
+                        'status': 'error',
+                        'message': 'User not found',
+                        'tasks_created': 0
+                    }
+
+                if not user['gmail_token']:
+                    print(f"[EMAIL TASK] ⚠️  User {user['email']} has no Gmail token")
+                    return {
+                        'status': 'error',
+                        'message': 'Gmail not connected',
+                        'tasks_created': 0
+                    }
+
+                user_email = user['email']
+        finally:
+            conn.close()
+
+        print(f"[EMAIL TASK] 👤 Checking emails for: {user_email}")
+
+        # Check emails for this specific user
+        result = _check_emails_for_user(user_id, user_email)
+
+        print("="*60)
+        print(f"[EMAIL TASK] 🎉 Email check complete for {user_email}!")
+        print(f"[EMAIL TASK]   Tasks created: {result.get('tasks_created', 0)}")
+        print("="*60 + "\n")
+
+        return result
+
+    except Exception as e:
+        print(f"[EMAIL TASK] ❌ Error during email check: {e}")
+        print("="*60 + "\n")
+        return {
+            'status': 'error',
+            'message': 'Email check failed',
+            'error': str(e)
+        }
+
+
+def _check_emails_for_user(user_id, user_email):
+    """
+    Check emails for a specific user and create tasks.
+    """
+    try:
 
         # Get absolute path to credentials (try multiple locations)
         project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -201,15 +251,25 @@ def check_emails_and_schedule():
         # Check only the last 3 most recent emails
         print("[EMAIL TASK] 📬 Checking last 3 most recent emails...")
 
+        # NEW: Pass user_id to use database tokens with automatic refresh
         # Get user's email address for logging
         try:
-            service = email_agent._build_gmail_service()
+            service = email_agent._build_gmail_service(user_id=user_id)
             profile = service.users().getProfile(userId='me').execute()
             print(f"[EMAIL TASK] 📧 Reading emails from: {profile.get('emailAddress', 'Unknown')}")
         except Exception as e:
             print(f"[EMAIL TASK] ⚠️ Could not get email address: {e}")
+            # If we can't get the service, likely token issue
+            print(f"[EMAIL TASK] ❌ Token error: User needs to connect Gmail account")
+            return {
+                'status': 'error',
+                'message': 'Gmail not connected. User needs to authorize Gmail access.',
+                'tasks_created': 0
+            }
 
         # Get only the last 3 emails (most recent, regardless of read status)
+        # Pass user_id to email agent so it uses database tokens
+        email_agent.user_id = user_id  # Store user_id in agent for future calls
         scheduler_tasks = email_agent.analyze_and_prepare_for_scheduler(
             query='',  # Empty query = all emails, sorted by date
             max_results=3  # Only last 3 emails

@@ -1,12 +1,12 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.api import transcribe, auth, notifications, calendar
+from app.api import transcribe, auth, notifications, calendar, google_auth, email_sync
 
 app = FastAPI(title="Intelligent Scheduler API", version="1.0.0")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"],
+    allow_origins=["http://localhost:5173", "http://95.179.179.94"],  # Add production URL
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -14,8 +14,9 @@ app.add_middleware(
 
 # Include routers
 app.include_router(auth.router)
+app.include_router(google_auth.router)  # Google OAuth
+app.include_router(email_sync.router)  # Email sync
 app.include_router(transcribe.router)
-
 app.include_router(notifications.router)
 app.include_router(calendar.router)
 

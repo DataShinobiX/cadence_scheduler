@@ -8,10 +8,11 @@ from google_auth_oauthlib.flow import InstalledAppFlow
 import os
 import sys
 
-# Gmail readonly scope
+# Gmail readonly scope + Full Calendar access
 SCOPES = [
     'https://www.googleapis.com/auth/gmail.readonly',
-    'https://www.googleapis.com/auth/calendar'  # Include calendar too
+    'https://www.googleapis.com/auth/calendar',  # Full calendar access
+    'https://www.googleapis.com/auth/calendar.events'  # Explicit events access
 ]
 
 def generate_token():

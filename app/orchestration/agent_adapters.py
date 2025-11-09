@@ -235,25 +235,44 @@ class Agent3Adapter:
             # Check if we have a scheduling plan
             scheduling_plan = state.get("scheduling_plan", [])
             if not scheduling_plan:
-                print("[AGENT 3] ℹ️  No scheduling plan to integrate")
+                print("[AGENT 3] No scheduling plan to integrate")
                 state["scheduled_events"] = []
                 state["current_agent"] = "Agent 3 Complete"
                 return state
 
             print(f"[AGENT 3] Processing {len(scheduling_plan)} tasks for calendar integration")
 
-            # Create a simplified version that doesn't need database session
-            # We'll use the Google Calendar API directly
-            integrator = SimplifiedCalendarIntegrator(
-                credentials_file=self.credentials_file,
-                token_file=self.token_file
-            )
+            # Use database-based token manager instead of file-based
+            from app.services.google_token_manager import GoogleTokenManager
 
-            # Integrate tasks
-            result = integrator.integrate_tasks(
-                user_id=user_id,
-                scheduling_plan=scheduling_plan
-            )
+            try:
+                # Get calendar service using database tokens
+                token_mgr = GoogleTokenManager(user_id)
+                calendar_service = token_mgr.get_calendar_service()
+
+                # Integrate tasks using the database-backed service
+                integrator = SimplifiedCalendarIntegrator(
+                    calendar_service=calendar_service,
+                    user_id=user_id
+                )
+
+                # Integrate tasks
+                result = integrator.integrate_tasks(
+                    user_id=user_id,
+                    scheduling_plan=scheduling_plan
+                )
+            except ValueError as e:
+                # Token not found or invalid
+                print(f"[AGENT 3] ⚠️  Google Calendar not connected: {e}")
+                state["errors"].append(f"Google Calendar not connected: {str(e)}")
+                state["current_agent"] = "Agent 3 Complete"
+                return state
+            except Exception as e:
+                # Other errors
+                print(f"[AGENT 3] ❌ Calendar integration error: {e}")
+                state["errors"].append(f"Calendar integration error: {str(e)}")
+                state["current_agent"] = "Agent 3 Complete"
+                return state
 
             # Update state with results
             state["scheduled_events"] = result.get("scheduled_events", [])
@@ -283,74 +302,24 @@ class SimplifiedCalendarIntegrator:
     """
     Simplified Calendar Integrator that doesn't require SQLAlchemy/ORM
     Uses Google Calendar API directly and stores events in DB via psycopg2
+
+    NEW: Accepts a pre-built calendar service from GoogleTokenManager
     """
 
-    def __init__(self, credentials_file, token_file):
-        from google.auth.transport.requests import Request
-        from google.oauth2.credentials import Credentials
-        from google_auth_oauthlib.flow import InstalledAppFlow
-        from googleapiclient.discovery import build
-        import os
+    def __init__(self, calendar_service, user_id: str):
+        """
+        Initialize with a pre-built calendar service
 
-        self.credentials_file = credentials_file
-        self.token_file = token_file
-        self.scopes = ["https://www.googleapis.com/auth/calendar"]
-        self.service = None
+        Args:
+            calendar_service: Google Calendar API service object
+            user_id: UUID of the user
+        """
+        self.service = calendar_service
+        self.user_id = user_id
         self.max_retries = 3
         self.backoff_factor = 2
 
-        print(f"[CALENDAR] 🔐 Initializing Google Calendar integration...")
-        print(f"[CALENDAR]   Credentials: {credentials_file}")
-        print(f"[CALENDAR]   Token: {token_file}")
-
-        # Build the calendar service
-        try:
-            self.service = self._build_calendar_service()
-            print(f"[CALENDAR] ✅ Google Calendar service initialized")
-        except Exception as e:
-            print(f"[CALENDAR] ❌ Failed to initialize: {e}")
-            raise
-
-    def _build_calendar_service(self):
-        """Build Calendar service using credentials.json and token.json files."""
-        from google.auth.transport.requests import Request
-        from google.oauth2.credentials import Credentials
-        from google_auth_oauthlib.flow import InstalledAppFlow
-        from googleapiclient.discovery import build
-        import os
-
-        creds = None
-
-        # Load token.json if it exists
-        if os.path.exists(self.token_file):
-            print(f"[CALENDAR] 📄 Loading existing token from {self.token_file}")
-            creds = Credentials.from_authorized_user_file(self.token_file, self.scopes)
-
-        # If no valid credentials, authenticate
-        if not creds or not creds.valid:
-            if creds and creds.expired and creds.refresh_token:
-                print(f"[CALENDAR] 🔄 Refreshing expired token...")
-                creds.refresh(Request())
-            else:
-                # Run OAuth flow using credentials.json
-                if not os.path.exists(self.credentials_file):
-                    raise FileNotFoundError(
-                        f"Credentials file '{self.credentials_file}' not found. "
-                        "Download it from Google Cloud Console."
-                    )
-
-                print(f"[CALENDAR] 🔐 Starting OAuth flow (browser will open)...")
-                flow = InstalledAppFlow.from_client_secrets_file(
-                    self.credentials_file, self.scopes
-                )
-                creds = flow.run_local_server(port=0)
-
-            # Save credentials for next run
-            print(f"[CALENDAR] 💾 Saving token to {self.token_file}")
-            with open(self.token_file, "w") as token:
-                token.write(creds.to_json())
-
-        return build("calendar", "v3", credentials=creds)
+        print(f"[CALENDAR] ✅ Calendar integrator initialized for user {user_id}")
 
     def integrate_tasks(self, user_id: str, scheduling_plan: List[Dict]) -> Dict:
         """

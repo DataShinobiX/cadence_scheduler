@@ -28,20 +28,18 @@ app.conf.update(
 )
 
 # Celery Beat schedule - runs periodic tasks
+# NOTE: Email checking is now ON-DEMAND via API endpoint /api/email/sync
+# Users trigger their own email sync when they log in or click "Sync Emails"
 app.conf.beat_schedule = {
-    'check-emails-every-minute': {
-        'task': 'app.tasks.email_checker.check_emails_and_schedule',
-        'schedule': 60.0,  # 1 minute = 60 seconds
-        'options': {
-            'expires': 55,  # Expire if not run within 55 seconds
-        }
-    },
+    # No periodic tasks by default
+    # Email sync is triggered per-user via API
 }
 
-# Optional: You can add more periodic tasks here
-# app.conf.beat_schedule['task-name'] = {
-#     'task': 'app.tasks.module.function',
-#     'schedule': crontab(hour=0, minute=0),  # Daily at midnight
+# Optional: You can add periodic tasks here if needed
+# Example - cleanup old tasks daily at midnight:
+# app.conf.beat_schedule['cleanup-old-tasks'] = {
+#     'task': 'app.tasks.cleanup.delete_old_tasks',
+#     'schedule': crontab(hour=0, minute=0),
 # }
 
 if __name__ == '__main__':
