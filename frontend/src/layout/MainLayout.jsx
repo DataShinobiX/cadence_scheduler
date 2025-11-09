@@ -26,7 +26,27 @@ export default function MainLayout({ children }) {
 
   useEffect(() => {
     let cancelled = false;
-    async function loadNotifications() {
+    const THROTTLE_MS = 6 * 60 * 60 * 1000; // 6 hours
+
+    // Throttle: only attempt to fetch/show notifications at most every THROTTLE_MS
+    const lastShown = Number(localStorage.getItem('notification_last_shown_at') || 0);
+    const now = Date.now();
+    if (now - lastShown < THROTTLE_MS) {
+      return;
+    }
+
+    // Defer work so it never blocks initial render or navigation
+    const schedule = (cb) => {
+      if (typeof window.requestIdleCallback === 'function') {
+        const id = window.requestIdleCallback(cb, { timeout: 2000 });
+        return () => window.cancelIdleCallback && window.cancelIdleCallback(id);
+      }
+      const id = setTimeout(cb, 1000); // small delay after mount
+      return () => clearTimeout(id);
+    };
+
+    const cancelScheduled = schedule(async () => {
+      if (cancelled || document.visibilityState !== 'visible') return;
       try {
         const userId = user?.id || user?.user_id || null;
         // Try weekly highlight first
@@ -35,6 +55,7 @@ export default function MainLayout({ children }) {
           const msg = highlight?.message;
           if (!cancelled && msg) {
             showNotification('This Week', msg);
+            localStorage.setItem('notification_last_shown_at', String(Date.now()));
             return;
           }
         } catch (_) {
@@ -45,14 +66,17 @@ export default function MainLayout({ children }) {
         if (!cancelled && list?.notifications?.length) {
           const first = list.notifications[0];
           showNotification(first.title || 'Upcoming', first.message || 'You have an upcoming event.');
+          localStorage.setItem('notification_last_shown_at', String(Date.now()));
         }
       } catch (e) {
         // Silently ignore notification errors in UI
-        // console.warn('Failed to load notifications', e);
       }
-    }
-    loadNotifications();
-    return () => { cancelled = true; };
+    });
+
+    return () => {
+      cancelled = true;
+      cancelScheduled && cancelScheduled();
+    };
   }, [user, showNotification]);
 
   const handleLogout = async () => {
