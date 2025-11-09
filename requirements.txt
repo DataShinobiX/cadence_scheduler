@@ -50,3 +50,6 @@ httpx==0.26.0
 black==24.1.1
 ruff==0.1.14
 email-validator==2.3.0
+
+# Email Agent Dependencies
+beautifulsoup4==4.12.3

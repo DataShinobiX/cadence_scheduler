@@ -383,8 +383,48 @@ taskkill /PID <PID> /F
 
 ---
 
+## 📧 Email Agent Setup (Optional - Auto-check emails every 5 minutes)
+
+The email agent automatically monitors Gmail and creates tasks from emails containing deadlines, meetings, etc.
+
+### Quick Start:
+
+```bash
+# 1. Install email agent dependency
+pip install beautifulsoup4
+
+# 2. Ensure Gmail credentials exist
+# Place credentials.json and token.json in root directory
+# (Ask project owner for these files)
+
+# 3. Start email agent
+./start_email_agent.sh
+
+# 4. Monitor activity
+tail -f celery-worker.log
+```
+
+### How It Works:
+
+Every 5 minutes, the email agent:
+1. Checks your Gmail for unread emails
+2. Uses AI to extract deadlines, meetings, birthdays, assignments
+3. Creates tasks in the database automatically
+4. Prevents duplicate processing
+
+### To Stop:
+
+```bash
+./stop_email_agent.sh
+```
+
+**For full documentation**: See `EMAIL_AGENT_QUICKSTART.md`
+
+---
+
 ## ✅ Setup Checklist
 
+### Core Application
 - [ ] Docker Desktop installed and running
 - [ ] `docker-compose up -d` completed successfully
 - [ ] `./setup_auth_db.sh` ran successfully
@@ -394,6 +434,12 @@ taskkill /PID <PID> /F
 - [ ] Frontend starts: `cd frontend && npm run dev`
 - [ ] Can signup at http://localhost:5173
 - [ ] Can record voice and see tasks scheduled
+
+### Email Agent (Optional)
+- [ ] `beautifulsoup4` installed
+- [ ] Gmail credentials (`credentials.json`, `token.json`) in root
+- [ ] Email agent started: `./start_email_agent.sh`
+- [ ] Logs show email checks every 5 minutes
 
 ---
 
