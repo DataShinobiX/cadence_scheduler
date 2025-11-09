@@ -26,7 +26,7 @@ export default function MainLayout({ children }) {
 
   useEffect(() => {
     let cancelled = false;
-    const THROTTLE_MS = 6 * 60 * 60 * 1000; // 6 hours
+    const THROTTLE_MS = 10 * 60 * 1000; // 10 minutes
 
     // Throttle: only attempt to fetch/show notifications at most every THROTTLE_MS
     const lastShown = Number(localStorage.getItem('notification_last_shown_at') || 0);
