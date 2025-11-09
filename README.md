@@ -1,427 +1,472 @@
-# Intelligent Scheduler
+# AI Life Assistant
 
-An AI-powered scheduling assistant that uses multiple intelligent agents to manage your calendar, extract tasks from emails, and provide weekly productivity insights.
+An intelligent scheduling assistant that truly understands your daily life, not just your schedule. By weaving together time, location, and context, it anticipates your needs: suggesting a meal after a long meeting, reminding you to leave early when traffic builds, or clearing your calendar for focused work. It learns your habits through seamless app integrations, becoming a smart, proactive companion that helps you live better, not busier.
 
-## Overview
+From booking restaurants and ordering food to managing tasks and supporting your health, this AI assistant serves as your ultimate digital twin designed to make life effortless.
 
-This application uses **agentic AI** to:
-- 📝 Decompose natural language requests into schedulable tasks
-- 🧠 Intelligently schedule tasks based on priorities and constraints
-- 🗓️ Integrate with Google Calendar
-- 📧 Extract deadlines from emails automatically
-- 📊 Generate weekly productivity recaps
+## Vision
 
-## Architecture
+Traditional calendar apps are reactive tools that simply display what you tell them. This project reimagines scheduling as a proactive, intelligent system that:
 
-The system uses **5 specialized AI agents** orchestrated by LangGraph:
+- **Understands Context**: Combines time, location, energy levels, and personal preferences to make smart scheduling decisions
+- **Anticipates Needs**: Suggests actions based on your patterns (meal breaks after long meetings, buffer time for travel, focus blocks when you're most productive)
+- **Learns and Adapts**: Continuously improves by observing your preferences and adjusting recommendations
+- **Integrates Seamlessly**: Connects with your existing tools (Google Calendar, Gmail) to provide a unified view of your life
+- **Removes Friction**: Handles the cognitive load of planning, so you can focus on what matters
 
-1. **Agent 1 (Task Decomposer)**: Breaks down complex requests into atomic tasks
-2. **Agent 2 (Scheduler Brain)**: Intelligently schedules tasks with conflict detection
-3. **Agent 3 (Calendar Integrator)**: Syncs with Google Calendar
-4. **Agent 4 (Email Tracker)**: Monitors emails for deadlines
-5. **Agent 5 (Recap Generator)**: Creates weekly productivity summaries
+## What We Built
 
-### Tech Stack
+This is a full-stack AI-powered scheduling application that uses multiple specialized AI agents to transform natural language input into intelligently scheduled calendar events. The system integrates with Google Calendar and Gmail to provide a comprehensive view of your commitments while proactively managing your time.
 
-- **Backend**: Python, FastAPI
-- **AI**: OpenAI GPT-4, LangGraph
-- **Database**: PostgreSQL, Redis
-- **Calendar**: Google Calendar API
-- **Email**: Gmail API
-- **Background Tasks**: Celery
+### Core Features
 
-## Quick Start for Team Members
+#### Multi-Agent Orchestration System
+The application uses five specialized AI agents, orchestrated through LangGraph, that work together to understand, schedule, and manage your tasks:
+
+1. **Task Decomposer Agent**: Converts natural language voice input into structured, actionable tasks with priorities, durations, and constraints
+2. **Scheduler Brain Agent**: Intelligently schedules tasks across a 7-day window, considering priorities, user preferences, energy levels, and existing calendar commitments
+3. **Calendar Integrator Agent**: Syncs scheduled tasks to Google Calendar with proper event metadata and conflict detection
+4. **Email Tracker Agent**: Continuously monitors Gmail inbox to extract deadlines and action items, automatically creating tasks
+5. **Weekly Recap Generator**: Generates productivity insights and personalized recommendations (in development)
+
+#### Voice-to-Calendar Automation
+Speak naturally about your plans, and the system:
+- Transcribes your voice input using OpenAI's transcription API
+- Decomposes complex requests into atomic tasks
+- Schedules each task intelligently based on constraints and preferences
+- Syncs everything to your Google Calendar
+- Detects and resolves conflicts with existing events
+
+#### Intelligent Conflict Resolution
+When scheduling conflicts arise, the system:
+- Detects overlaps with existing calendar events
+- Generates alternative scheduling options
+- Presents choices to the user through an interactive UI
+- Re-schedules based on user feedback
+- Learns from conflict resolution patterns
+
+#### Email Integration
+Automatically scans your Gmail inbox to:
+- Extract deadlines and action items from emails
+- Parse email content to understand context
+- Create tasks with appropriate priorities
+- Trigger scheduling workflows for urgent items
+- Run as a background task every 60 seconds
+
+#### User Preference Learning
+The system learns and adapts to your habits:
+- Work hours and productivity patterns
+- Meeting preferences and buffer time needs
+- Lunch break timing
+- Morning person vs night owl tendencies
+- Task-energy level matching
+
+#### Smart Notifications and Reminders
+- Context-aware notifications for upcoming events
+- Weather integration for location-based events
+- Weekly productivity highlights and insights
+- Notification history with read/unread tracking
+
+## Technical Architecture
+
+### Backend Stack
+
+**Web Framework**
+- FastAPI 0.109.0: High-performance async API framework
+- Uvicorn 0.27.0: ASGI server for production deployment
+
+**AI and Language Models**
+- OpenAI GPT-4: Powers all intelligent agent decisions
+- LangChain 0.1.0: Framework for building LLM applications
+- LangGraph 0.0.20: State machine orchestration for multi-agent workflows
+
+**Database Layer**
+- PostgreSQL 15: Primary data store for users, tasks, events, and preferences
+- SQLAlchemy 2.0.25: ORM for database interactions
+- Alembic 1.13.1: Database migration management
+- AsyncPG 0.29.0: Async PostgreSQL driver
+
+**Background Processing**
+- Redis 5.0.1: Message broker and caching layer
+- Celery 5.3.6: Distributed task queue for email monitoring and scheduled jobs
+
+**Google Cloud Integration**
+- google-auth 2.27.0: OAuth 2.0 authentication
+- google-auth-oauthlib 1.2.0: OAuth flow handling
+- google-api-python-client 2.115.0: Google Calendar and Gmail API client
+
+**Authentication and Security**
+- Python-jose 3.3.0: JWT token generation and validation
+- Passlib 1.7.4: Password hashing with bcrypt
+
+**Utilities**
+- Pydantic 2.5.3: Data validation and settings management
+- HTTPx 0.26.0: Async HTTP client
+- BeautifulSoup4 4.12.3: HTML parsing for email content
+- Structlog 24.1.0: Structured logging
+
+### Frontend Stack
+
+**Core Framework**
+- React: Modern component-based UI framework
+- Vite 7.2.2: Fast build tool and development server
+- React Router DOM 7.9.5: Client-side routing
+
+**UI Components and Styling**
+- Tailwind CSS 3.4.14: Utility-first CSS framework
+- Headless UI 2.2.9: Accessible unstyled components
+- HeroIcons React 2.2.0: Icon library
+
+**State Management and Data Fetching**
+- React Context API: Global state management
+- Axios 1.13.2: HTTP client for API communication
+
+**Utilities**
+- Clsx 2.1.1: Conditional className management
+- React-use 17.6.0: Essential React hooks collection
+
+### Infrastructure
+
+**Containerization**
+- Docker: Containerized PostgreSQL and Redis services
+- Docker Compose: Multi-container orchestration
+
+**Development Tools**
+- Black: Python code formatting
+- Ruff: Fast Python linter
+- ESLint and Prettier: JavaScript/React code quality
+
+## Project Structure
+
+```
+unigames/
+├── app/                              # Backend application
+│   ├── agents/                       # AI agent implementations
+│   │   ├── task_decomposer.py       # Natural language to structured tasks
+│   │   ├── scheduler_brain.py       # Intelligent scheduling engine
+│   │   ├── email_tracking.py        # Gmail deadline extraction
+│   │   └── prompts/                 # Agent system prompts
+│   ├── api/                          # FastAPI route handlers
+│   │   ├── auth.py                  # Authentication endpoints
+│   │   ├── transcribe.py            # Voice transcription and orchestration
+│   │   ├── calendar.py              # Google Calendar integration
+│   │   └── notifications.py         # Event notifications and highlights
+│   ├── orchestration/                # LangGraph workflow engine
+│   │   ├── orchestrator.py          # Central orchestration controller
+│   │   ├── scheduler_graph.py       # State machine definition
+│   │   ├── agent_adapters.py        # Agent integration adapters
+│   │   └── state.py                 # Shared state management
+│   ├── tasks/                        # Celery background jobs
+│   │   └── email_checker.py         # Periodic email monitoring
+│   ├── middleware/                   # Request/response middleware
+│   │   └── auth.py                  # JWT authentication
+│   ├── db/                           # Database queries
+│   ├── services/                     # Business logic
+│   │   └── weather.py               # Weather service integration
+│   ├── main.py                      # FastAPI application setup
+│   └── celery_app.py                # Celery configuration
+├── frontend/                         # React application
+│   ├── src/
+│   │   ├── pages/                   # Top-level page components
+│   │   │   ├── Auth.jsx             # Login and signup
+│   │   │   ├── Dashboard.jsx        # Main dashboard
+│   │   │   ├── Calendar.jsx         # Calendar view
+│   │   │   ├── Tasks.jsx            # Task management
+│   │   │   └── Reminders.jsx        # Notifications and highlights
+│   │   ├── components/              # Reusable components
+│   │   │   ├── VoiceRecorder.jsx    # Audio recording interface
+│   │   │   ├── CalendarView.jsx     # Calendar display
+│   │   │   ├── TaskList.jsx         # Task list display
+│   │   │   ├── AgentThinkingFlow.jsx # Agent execution visualization
+│   │   │   ├── UserPreferencesModal.jsx # Preference settings
+│   │   │   └── Toast.jsx            # Notification toasts
+│   │   ├── services/                # API client modules
+│   │   ├── context/                 # React context providers
+│   │   └── hooks/                   # Custom React hooks
+│   ├── package.json                 # Frontend dependencies
+│   └── vite.config.js              # Vite configuration
+├── scripts/                          # Setup and utility scripts
+│   └── init_db.sql                 # Database initialization
+├── docker-compose.yml               # Service orchestration
+├── requirements.txt                 # Python dependencies
+└── setup_database.sh               # Database setup script
+```
+
+## How It Works
+
+### Complete Workflow
+
+1. **Voice Input**: User records audio describing their plans and tasks
+2. **Transcription**: Audio is converted to text using OpenAI's Whisper API
+3. **Task Decomposition**: Agent 1 analyzes the transcript and extracts structured tasks with metadata (duration, priority, location, contacts)
+4. **Intelligent Scheduling**: Agent 2 schedules tasks across a 7-day window, considering:
+   - User's work hours and productivity patterns
+   - Existing calendar commitments
+   - Task priorities and dependencies
+   - Travel time between locations
+   - Energy level requirements
+5. **Conflict Detection**: System identifies scheduling conflicts and generates alternative options
+6. **User Feedback Loop**: If conflicts exist, user reviews alternatives and provides input (max 3 iterations)
+7. **Calendar Sync**: Agent 3 creates Google Calendar events with proper metadata
+8. **Continuous Monitoring**: Agent 4 runs in the background, scanning emails for new deadlines
+9. **Smart Notifications**: System sends context-aware reminders and weekly productivity insights
+
+### State Machine Architecture
+
+The system uses LangGraph to manage a sophisticated state machine that tracks:
+- Decomposed tasks with confidence scores
+- Scheduling plans and alternatives
+- Detected conflicts and resolutions
+- User feedback and preferences
+- Calendar integration status
+- Error handling and retry logic
+
+This architecture ensures reliable, traceable execution across all agent interactions.
+
+## Database Schema
+
+The application uses PostgreSQL with the following core tables:
+
+- **users**: User accounts, Google OAuth tokens, timezone preferences
+- **tasks**: Decomposed tasks from voice input with scheduling metadata
+- **calendar_events**: Synced Google Calendar events with movability flags
+- **email_tracking**: Extracted deadlines and action items from emails
+- **agent_context**: Agent execution logs for debugging and analytics
+- **scheduling_conflicts**: Conflict records and resolution history
+- **user_sessions**: JWT session tokens
+- **weekly_recaps**: Generated productivity summaries
+
+## Key Capabilities
+
+### Natural Language Understanding
+The system understands complex, natural requests like:
+- "I need to meet Bob downtown at 2 PM, finish the pitch deck by EOD, and go to the gym after 5 PM"
+- "Schedule a team sync tomorrow morning, leaving buffer time for my 11 AM client call"
+- "Block 3 hours this week for focused coding work during my peak productivity hours"
+
+### Context-Aware Scheduling
+The scheduler considers:
+- Your declared work hours and breaks
+- Morning person vs night owl preferences
+- Required travel time between locations
+- Task complexity vs available energy levels
+- Meeting buffer preferences
+- Focus time requirements
+
+### Proactive Email Monitoring
+The system continuously scans your Gmail inbox and:
+- Identifies emails containing deadlines or action items
+- Extracts task details using AI-powered analysis
+- Automatically creates tasks with appropriate urgency
+- Triggers scheduling workflows for time-sensitive items
+
+### Intelligent Conflict Resolution
+When conflicts are detected, the system:
+- Analyzes all possible scheduling alternatives
+- Ranks options based on user preferences
+- Presents clear choices with trade-off explanations
+- Learns from user selections to improve future recommendations
+
+## Getting Started
 
 ### Prerequisites
 
 - Docker Desktop
 - Python 3.11+
-- Git
+- Node.js 18+
+- Google Cloud Console account (for Calendar and Gmail APIs)
+- OpenAI API key
 
-### 1. Clone Repository
+### Backend Setup
 
-```bash
-git clone <repository-url>
-cd intelligent-scheduler
-```
+1. Clone the repository and navigate to the project directory
 
-### 2. Set Up Database
-
-#### On Linux/Mac:
+2. Set up database services:
 ```bash
 chmod +x setup_database.sh
 ./setup_database.sh
 ```
 
-#### On Windows:
+3. Configure environment variables:
 ```bash
-setup_database.bat
-```
-
-### 3. Verify Setup
-
-```bash
-# Install verification dependencies
-pip install -r requirements-db.txt
-
-# Run verification
-python scripts/verify_database.py
-```
-
-### 4. Configure Environment
-
-```bash
-# Copy environment template
 cp .env.example .env
-
-# Edit .env and add your API keys
-# Required: OPENAI_API_KEY
-# Optional (for calendar): GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET
+# Edit .env with your API keys and credentials
 ```
 
-## Project Structure
+Required environment variables:
+- `OPENAI_API_KEY`: Your OpenAI API key
+- `DATABASE_URL`: PostgreSQL connection string
+- `REDIS_URL`: Redis connection string
+- `GOOGLE_CLIENT_ID`: Google OAuth client ID
+- `GOOGLE_CLIENT_SECRET`: Google OAuth client secret
 
-```
-intelligent-scheduler/
-├── app/                    # Application code
-│   ├── agents/            # AI agent implementations
-│   ├── api/               # FastAPI routes
-│   ├── models/            # Database models
-│   ├── orchestration/     # LangGraph workflows
-│   └── services/          # Business logic
-├── docs/                   # Documentation
-│   ├── SOLUTION_ARCHITECTURE.md
-│   ├── AGENT_WORKFLOWS.md
-│   ├── PROJECT_STRUCTURE.md
-│   └── QUICK_START_GUIDE.md
-├── scripts/               # Utility scripts
-│   ├── init_db.sql       # Database initialization
-│   └── verify_database.py # Database verification
-├── tests/                 # Test suite
-├── docker-compose.yml     # Docker services
-└── setup_database.sh      # Database setup script
-```
-
-## Database Schema
-
-The application uses 9 main tables:
-
-- **users** - User accounts and OAuth tokens
-- **tasks** - All user tasks
-- **calendar_events** - Synced calendar events
-- **email_tracking** - Email extraction tracking
-- **agent_context** - Agent execution logs
-- **weekly_recaps** - Weekly summaries
-- **scheduling_conflicts** - Conflict tracking
-- **user_sessions** - Session management
-
-See [DATABASE_SETUP_README.md](DATABASE_SETUP_README.md) for detailed database documentation.
-
-## Development Workflow
-
-### Starting Services
-
+4. Install Python dependencies:
 ```bash
-# Start database services
-docker-compose up -d
-
-# Verify everything is running
-docker-compose ps
-```
-
-### Running the Application
-
-```bash
-# Install dependencies
 pip install -r requirements.txt
+```
 
-# Start development server
+5. Start the FastAPI server:
+```bash
 uvicorn app.main:app --reload
 ```
+
+6. Start background workers:
+```bash
+# In separate terminals:
+celery -A app.celery_app worker --loglevel=info
+celery -A app.celery_app beat --loglevel=info
+```
+
+### Frontend Setup
+
+1. Navigate to frontend directory:
+```bash
+cd frontend
+```
+
+2. Install dependencies:
+```bash
+npm install
+```
+
+3. Start development server:
+```bash
+npm run dev
+```
+
+The application will be available at:
+- Frontend: http://localhost:5173
+- Backend API: http://localhost:8000
+- API Documentation: http://localhost:8000/docs
+
+## API Documentation
+
+Once the backend is running, explore the complete API documentation at:
+- Swagger UI: http://localhost:8000/docs
+- ReDoc: http://localhost:8000/redoc
+
+Key endpoints:
+- `POST /api/auth/signup`: Create new user account
+- `POST /api/auth/login`: Authenticate user
+- `POST /api/transcribe`: Voice transcription and scheduling orchestration
+- `GET /api/calendar/events`: Fetch Google Calendar events
+- `GET /api/notifications`: Get upcoming event notifications
+- `GET /api/notifications/highlights`: Weekly productivity insights
+- `GET /api/user/preferences`: Retrieve learned user preferences
+- `PATCH /api/user/preferences`: Update user preferences
+
+## Development
 
 ### Running Tests
 
 ```bash
-# Install test dependencies
-pip install -r requirements.txt
-
-# Run tests
+# Backend tests
 pytest
 
-# Run with coverage
+# With coverage
 pytest --cov=app
+
+# Frontend tests
+cd frontend
+npm test
 ```
 
-## API Documentation
-
-Once the server is running, visit:
-- **Swagger UI**: http://localhost:8000/docs
-- **ReDoc**: http://localhost:8000/redoc
-
-## Key Features
-
-### 1. Natural Language Task Input
-
-```python
-# User says:
-"I need to meet Bob downtown at 2 PM, finish the pitch deck by EOD,
-and go to the gym after 5 PM"
-
-# Agent 1 decomposes into:
-[
-  "Travel to downtown",
-  "Meeting with Bob",
-  "Travel back home",
-  "Finish pitch deck",
-  "Go to gym"
-]
-```
-
-### 2. Intelligent Scheduling
-
-Agent 2 considers:
-- Task priorities
-- User preferences (morning person vs night owl)
-- Travel time between locations
-- Existing calendar commitments
-- Energy-task matching (hard tasks during productive hours)
-
-### 3. Conflict Resolution
-
-When conflicts arise:
-1. Agent 2 detects the conflict
-2. Generates alternatives
-3. Asks user for input
-4. Reschedules accordingly
-
-### 4. Email Integration
-
-Agent 4 automatically:
-- Scans emails for deadlines
-- Extracts task information
-- Creates tasks in the database
-- Triggers scheduling if urgent
-
-### 5. Weekly Recaps
-
-Agent 5 generates insights:
-- Tasks completed vs planned
-- Most productive days/times
-- Work-life balance score
-- Personalized recommendations
-
-## Docker Services
-
-### PostgreSQL
-- **Port**: 5432
-- **Database**: scheduler_db
-- **User**: scheduler_user
-- **Password**: scheduler_pass
-
-### Redis
-- **Port**: 6379
-- Used for caching and Celery task queue
-
-### pgAdmin (Optional)
-- **Port**: 5050
-- Web UI for database management
-- **Email**: admin@scheduler.com
-- **Password**: admin
-
-## Useful Commands
-
-### Docker
+### Code Quality
 
 ```bash
-# View logs
-docker-compose logs -f
-
-# Stop services
-docker-compose stop
-
-# Restart services
-docker-compose restart
-
-# Remove everything (including data!)
-docker-compose down -v
-```
-
-### Database
-
-```bash
-# Connect to database
-docker exec -it scheduler_db psql -U scheduler_user -d scheduler_db
-
-# List tables
-\dt
-
-# Describe table
-\d users
-
-# Run query
-SELECT * FROM users;
-```
-
-### Application
-
-```bash
-# Format code
+# Format Python code
 black app/
 
-# Lint code
+# Lint Python code
 ruff app/
 
-# Type check
-mypy app/
+# Format frontend code
+cd frontend
+npm run lint
+npm run format
 ```
 
-## Team Collaboration
-
-### Before Starting Work
+### Database Management
 
 ```bash
-# Pull latest changes
-git pull origin main
+# Connect to PostgreSQL
+docker exec -it scheduler_db psql -U scheduler_user -d scheduler_db
 
-# Ensure database is up to date
-docker-compose down -v
-./setup_database.sh
+# Create migration
+alembic revision --autogenerate -m "description"
 
-# Install/update dependencies
-pip install -r requirements.txt
+# Apply migrations
+alembic upgrade head
 ```
 
-### Committing Changes
+## Architecture Decisions
 
-```bash
-# Create feature branch
-git checkout -b feature/your-feature-name
+### Why Multi-Agent Architecture?
+Breaking the scheduling problem into specialized agents provides:
+- **Modularity**: Each agent can be developed, tested, and improved independently
+- **Maintainability**: Clear separation of concerns makes the codebase easier to understand
+- **Scalability**: New agents can be added without modifying existing ones
+- **Reliability**: Failures in one agent don't cascade to others
 
-# Make your changes...
+### Why LangGraph?
+LangGraph provides:
+- **State Management**: Shared state across agent executions
+- **Error Handling**: Built-in retry and fallback mechanisms
+- **Observability**: Complete execution traces for debugging
+- **Flexibility**: Easy to modify workflow logic without changing agent code
 
-# Run tests
-pytest
+### Why FastAPI?
+FastAPI offers:
+- **Performance**: Async support for handling concurrent requests
+- **Type Safety**: Pydantic integration for request/response validation
+- **Documentation**: Automatic OpenAPI/Swagger documentation
+- **Modern Python**: Leverages Python 3.11+ features
 
-# Commit
-git add .
-git commit -m "Description of changes"
+### Why React + Vite?
+This combination provides:
+- **Fast Development**: Hot module replacement and instant server start
+- **Modern Tooling**: Built-in TypeScript support and optimized builds
+- **Component Reusability**: Modular UI components
+- **Rich Ecosystem**: Access to extensive React libraries
 
-# Push
-git push origin feature/your-feature-name
-```
+## Future Enhancements
 
-## Documentation
+### Short Term
+- Complete Weekly Recap Agent implementation
+- Add voice output for agent responses
+- Implement mobile responsive design
+- Add task delegation and sharing features
 
-- **[SOLUTION_ARCHITECTURE.md](docs/SOLUTION_ARCHITECTURE.md)** - Complete system design
-- **[AGENT_WORKFLOWS.md](docs/AGENT_WORKFLOWS.md)** - Agent communication patterns
-- **[PROJECT_STRUCTURE.md](docs/PROJECT_STRUCTURE.md)** - Detailed file structure
-- **[QUICK_START_GUIDE.md](docs/QUICK_START_GUIDE.md)** - Step-by-step implementation guide
-- **[DATABASE_SETUP_README.md](DATABASE_SETUP_README.md)** - Database setup and maintenance
+### Medium Term
+- Multi-platform calendar support (Outlook, Apple Calendar)
+- Integration with task management tools (Todoist, Asana)
+- SMS and push notification support
+- Advanced analytics dashboard
 
-## Troubleshooting
-
-### Database Won't Start
-
-```bash
-# Check if port 5432 is in use
-lsof -i :5432
-
-# View logs
-docker-compose logs db
-```
-
-### Redis Won't Connect
-
-```bash
-# Verify Redis is running
-docker exec scheduler_redis redis-cli ping
-# Should return "PONG"
-```
-
-### Can't Connect to Database
-
-```bash
-# Verify containers are running
-docker-compose ps
-
-# Restart services
-docker-compose restart
-```
-
-## Environment Variables
-
-Required variables in `.env`:
-
-```bash
-# Required
-OPENAI_API_KEY=sk-...
-DATABASE_URL=postgresql://scheduler_user:scheduler_pass@localhost:5432/scheduler_db
-REDIS_URL=redis://localhost:6379/0
-
-# Optional (for Google Calendar integration)
-GOOGLE_CLIENT_ID=...
-GOOGLE_CLIENT_SECRET=...
-```
-
-See `.env.example` for all available options.
-
-## API Examples
-
-### Schedule Tasks
-
-```bash
-curl -X POST "http://localhost:8000/api/v1/schedule" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "user_id": "user-123",
-    "transcript": "Meet Bob at 2 PM and finish the report by EOD"
-  }'
-```
-
-### Get Tasks
-
-```bash
-curl "http://localhost:8000/api/v1/tasks?user_id=user-123"
-```
-
-### Get Weekly Recap
-
-```bash
-curl "http://localhost:8000/api/v1/recap/2024-11-04?user_id=user-123"
-```
-
-## Roadmap
-
-### Phase 1 (MVP - Hackathon)
-- [x] Database setup
-- [ ] Agent 1: Task Decomposer
-- [ ] Agent 2: Scheduler Brain (basic)
-- [ ] Agent 3: Calendar Integrator
-- [ ] Google OAuth integration
-- [ ] Basic API endpoints
-
-### Phase 2
-- [ ] Agent 4: Email Tracker
-- [ ] Conflict resolution UI
-- [ ] Agent 5: Weekly Recaps
-
-### Phase 3
-- [ ] Frontend interface
-- [ ] Voice input
-- [ ] Mobile app
-- [ ] Advanced scheduling algorithms
+### Long Term
+- Food ordering integration (UberEats, DoorDash)
+- Restaurant reservation automation (OpenTable)
+- Fitness tracking integration (Apple Health, Google Fit)
+- Travel booking assistance
+- Smart home integration
+- Offline mode with local LLM support
 
 ## Contributing
 
-1. Create a feature branch
-2. Make your changes
-3. Write tests
-4. Run `pytest` to ensure tests pass
+We welcome contributions! Please:
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes with tests
+4. Run code quality checks
 5. Submit a pull request
 
 ## License
 
-[Add your license here]
+[Specify your license here]
+
+## Acknowledgments
+
+Built for the University Games Hackathon with the vision of creating a truly intelligent personal assistant that understands context, learns preferences, and proactively manages your life.
 
 ## Team
 
@@ -429,12 +474,8 @@ curl "http://localhost:8000/api/v1/recap/2024-11-04?user_id=user-123"
 
 ## Support
 
-For issues or questions:
-1. Check the troubleshooting section
-2. View logs: `docker-compose logs`
-3. Run verification: `python scripts/verify_database.py`
-4. Contact the team lead
-
----
-
-Built with ❤️ for [Hackathon Name]
+For questions or issues:
+1. Check the API documentation at http://localhost:8000/docs
+2. Review the troubleshooting section in the original README
+3. Open an issue on GitHub
+4. Contact the development team
