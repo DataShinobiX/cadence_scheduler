@@ -33,6 +33,8 @@ async def root():
             "transcribe": "POST /api/transcribe - Transcribe audio and schedule tasks",
             "notifications": "GET /api/notifications - Upcoming event notifications",
             "calendar_events": "GET /api/calendar/events - Get calendar events",
+            "user_preferences_get": "GET /api/user/preferences - Get learned preferences",
+            "user_preferences_update": "PATCH /api/user/preferences - Update learned preferences",
             "notifications_highlights": "GET /api/notifications/highlights - Get weekly highlights",
             "docs": "GET /docs - API documentation"
         }

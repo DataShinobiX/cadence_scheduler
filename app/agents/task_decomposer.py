@@ -67,9 +67,6 @@ Output EXACTLY this structure (no prose, no backticks):
 
 Rules:
 - Identify activities (lecture, class, meeting, gym, read, call, appointment, lunch, etc.).
-- If travel is likely (the activity implies a different place than where the user currently is),
-  ADD a separate travel task that ENDS before the activity start. If the activity time is unknown,
-  keep travel time flexible and note that in constraints.
 - Extract time constraints and keep them as constraints if exact times are not stated
   (e.g., "after 5pm", "before EOD"). Do NOT fabricate exact times.
 - Extract contact info (emails, phone numbers, @handles) from the text. Put them on the
@@ -184,7 +181,7 @@ class TaskDecomposerLLM:
         prompt = (
             f"{TASK_JSON_INSTRUCTIONS}\n\n"
             f"Now: {now_iso}\n"
-            f"Timezone: {self.tz}\n"
+            #f"Timezone: {self.tz}\n"
             f"Optional context (JSON):\n{json.dumps(context, ensure_ascii=False)}\n\n"
             f"User text:\n{text}\n"
         )

@@ -58,7 +58,7 @@ export default function Auth() {
             </svg>
           </div>
           <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent mb-2">
-            UniGames Scheduler
+            Circuit
           </h1>
           <p className="text-gray-600">
             {isSignup ? 'Create your account to get started' : 'Welcome back!'}

@@ -1,9 +1,11 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { useEffect } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../components/ToastContainer';
 import { useNotificationHistory } from '../hooks/useNotificationHistory';
 import { getUpcomingNotifications, getWeeklyHighlights } from '../services/notifications';
+import UserPreferencesModal from '../components/UserPreferencesModal';
+import { getUserPreferences, saveUserPreferences } from '../services/user';
 
 const tabs = [
   { name: 'Voice Assistant', path: '/dashboard' },
@@ -15,9 +17,14 @@ const tabs = [
 export default function MainLayout({ children }) {
   const location = useLocation();
   const navigate = useNavigate();
-  const { user, logout } = useAuth();
-  const { showInfo } = useToast();
+  const { user, logout, updateUserPreferences } = useAuth();
+  const { showInfo, showError, showSuccess } = useToast();
   const { unreadCount } = useNotificationHistory();
+  const [preferencesModalOpen, setPreferencesModalOpen] = useState(false);
+  const [preferencesData, setPreferencesData] = useState(user?.preferences || null);
+  const [preferencesLoading, setPreferencesLoading] = useState(false);
+  const [preferencesSaving, setPreferencesSaving] = useState(false);
+  const preferencesLoadedRef = useRef(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -74,6 +81,60 @@ export default function MainLayout({ children }) {
     };
   }, [user, showInfo]);
 
+  useEffect(() => {
+    if (!user) {
+      setPreferencesData(null);
+      return;
+    }
+    setPreferencesData(user.preferences || null);
+  }, [user]);
+
+  const loadPreferences = useCallback(async () => {
+    setPreferencesLoading(true);
+    try {
+      const result = await getUserPreferences();
+      const prefs = result?.preferences || {};
+      setPreferencesData(prefs);
+      updateUserPreferences(prefs);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Could not load preferences.';
+      showError(message);
+    } finally {
+      setPreferencesLoading(false);
+    }
+  }, [showError, updateUserPreferences]);
+
+  useEffect(() => {
+    if (!preferencesModalOpen || !user) {
+      preferencesLoadedRef.current = false;
+      setPreferencesLoading(false);
+      return;
+    }
+
+    if (preferencesLoadedRef.current) {
+      return;
+    }
+
+    preferencesLoadedRef.current = true;
+    loadPreferences();
+  }, [preferencesModalOpen, user, loadPreferences]);
+
+  const handleSavePreferences = async (updatedValues) => {
+    setPreferencesSaving(true);
+    try {
+      const result = await saveUserPreferences(updatedValues);
+      const prefs = result?.preferences || {};
+      setPreferencesData(prefs);
+      updateUserPreferences(prefs);
+      showSuccess('Preferences updated successfully.');
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Could not save preferences.';
+      showError(message);
+    } finally {
+      setPreferencesSaving(false);
+    }
+  };
+
   const handleLogout = async () => {
     await logout();
     navigate('/login');
@@ -89,19 +150,28 @@ export default function MainLayout({ children }) {
             </svg>
           </div>
           <h1 className="text-xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
-            UniGames Assistant
+            Circuit
           </h1>
         </div>
 
         <div className="flex items-center gap-4">
           {user && (
-            <div className="hidden sm:flex items-center gap-2 px-4 py-2 bg-blue-50 rounded-lg border border-blue-200">
-              <svg className="h-5 w-5 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd"/>
-              </svg>
-              <span className="text-sm text-blue-900 font-medium">
-                {user.name || user.email}
-              </span>
+            <div className="hidden sm:flex flex-col items-start gap-1 px-4 py-2 bg-blue-50 rounded-lg border border-blue-200">
+              <div className="flex items-center gap-2">
+                <svg className="h-5 w-5 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd"/>
+                </svg>
+                <span className="text-sm text-blue-900 font-medium">
+                  {user.name || user.email}
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setPreferencesModalOpen(true)}
+                className="text-xs font-semibold text-blue-700 hover:text-blue-900 hover:underline"
+              >
+                See user preferences learned
+              </button>
             </div>
           )}
           <button
@@ -134,6 +204,14 @@ export default function MainLayout({ children }) {
         ))}
       </nav>
       <main className="flex-1 p-6 animate-fadeIn">{children}</main>
+      <UserPreferencesModal
+        isOpen={preferencesModalOpen}
+        onClose={() => setPreferencesModalOpen(false)}
+        preferences={preferencesData}
+        loading={preferencesLoading}
+        saving={preferencesSaving}
+        onSubmit={handleSavePreferences}
+      />
     </div>
   );
 }

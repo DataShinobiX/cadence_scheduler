@@ -3,9 +3,11 @@ Authentication API Endpoints
 Simple email-based authentication for the intelligent scheduler
 """
 
+import json
+
 from fastapi import APIRouter, HTTPException, Header
 from pydantic import BaseModel, EmailStr
-from typing import Optional
+from typing import Optional, Dict, Any
 from datetime import datetime, timedelta
 import uuid
 import os
@@ -40,6 +42,7 @@ class UserResponse(BaseModel):
     name: str
     timezone: str
     created_at: str
+    preferences: Optional[Dict[str, Any]] = None
 
 
 # ============================================================================
@@ -64,6 +67,55 @@ def _get_connection():
 # ============================================================================
 # Auth Endpoints
 # ============================================================================
+
+ALLOWED_PREFERENCE_FIELDS = {
+    "lunch_time",
+    "break_duration",
+    "work_hours_end",
+    "work_hours_start",
+    "gym_preferred_time",
+    "focus_time_preference",
+    "preferred_meeting_duration",
+}
+
+
+class PreferenceUpdateRequest(BaseModel):
+    preferences: Dict[str, Any]
+
+    def filtered_preferences(self) -> Dict[str, Any]:
+        """Return only preference keys that we explicitly allow."""
+        filtered = {k: v for k, v in (self.preferences or {}).items() if k in ALLOWED_PREFERENCE_FIELDS}
+        if not filtered:
+            raise HTTPException(status_code=400, detail="No valid preference fields provided")
+        return filtered
+
+
+def _extract_token(authorization: Optional[str]) -> str:
+    """Parse the Authorization header and return the bearer token."""
+    if not authorization:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+
+    parts = authorization.split(" ")
+    if len(parts) != 2 or parts[0].lower() != "bearer":
+        raise HTTPException(status_code=401, detail="Invalid authorization header")
+
+    return parts[1]
+
+
+def _get_user_for_token(cur, token: str):
+    cur.execute(
+        """
+        SELECT u.user_id, u.email, u.name, u.timezone, u.created_at, u.preferences
+        FROM users u
+        JOIN auth_sessions s ON u.user_id = s.user_id
+        WHERE s.session_token = %s::uuid
+          AND s.is_active = true
+          AND s.expires_at > NOW()
+        """,
+        (token,),
+    )
+    return cur.fetchone()
+
 
 @router.post("/api/auth/signup", response_model=AuthResponse)
 async def signup(request: SignupRequest):
@@ -99,7 +151,7 @@ async def signup(request: SignupRequest):
                 """
                 INSERT INTO users (email, name, timezone, onboarding_completed)
                 VALUES (%s, %s, %s, %s)
-                RETURNING user_id, email, name, timezone, created_at
+                RETURNING user_id, email, name, timezone, created_at, preferences
                 """,
                 (request.email, request.name, "UTC", True)
             )
@@ -132,7 +184,8 @@ async def signup(request: SignupRequest):
                     "email": user["email"],
                     "name": user["name"],
                     "timezone": user["timezone"],
-                    "created_at": user["created_at"].isoformat() if user["created_at"] else None
+                    "created_at": user["created_at"].isoformat() if user["created_at"] else None,
+                    "preferences": user.get("preferences") or {}
                 }
             }
 
@@ -164,7 +217,7 @@ async def login(request: LoginRequest):
             # Find user
             cur.execute(
                 """
-                SELECT user_id, email, name, timezone, created_at
+                SELECT user_id, email, name, timezone, created_at, preferences
                 FROM users
                 WHERE email = %s
                 """,
@@ -206,7 +259,8 @@ async def login(request: LoginRequest):
                     "email": user["email"],
                     "name": user["name"],
                     "timezone": user["timezone"],
-                    "created_at": user["created_at"].isoformat() if user["created_at"] else None
+                    "created_at": user["created_at"].isoformat() if user["created_at"] else None,
+                    "preferences": user.get("preferences") or {}
                 }
             }
 
@@ -231,34 +285,13 @@ async def get_current_user(authorization: Optional[str] = Header(None)):
     """
     print(f"\n[AUTH] 👤 Get current user request")
 
-    # Extract token from Authorization header
-    if not authorization:
-        raise HTTPException(status_code=401, detail="Not authenticated")
-
-    # Expected format: "Bearer <token>"
-    parts = authorization.split(" ")
-    if len(parts) != 2 or parts[0].lower() != "bearer":
-        raise HTTPException(status_code=401, detail="Invalid authorization header")
-
-    token = parts[1]
+    token = _extract_token(authorization)
     print(f"[AUTH] 🔍 Validating token: {token[:8]}...")
 
     conn = _get_connection()
     try:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
-            # Validate token and get user
-            cur.execute(
-                """
-                SELECT u.user_id, u.email, u.name, u.timezone, u.created_at
-                FROM users u
-                JOIN auth_sessions s ON u.user_id = s.user_id
-                WHERE s.session_token = %s::uuid
-                  AND s.is_active = true
-                  AND s.expires_at > NOW()
-                """,
-                (token,)
-            )
-            user = cur.fetchone()
+            user = _get_user_for_token(cur, token)
 
             if not user:
                 print(f"[AUTH] ⚠️  Invalid or expired token")
@@ -282,7 +315,8 @@ async def get_current_user(authorization: Optional[str] = Header(None)):
                 "email": user["email"],
                 "name": user["name"],
                 "timezone": user["timezone"],
-                "created_at": user["created_at"].isoformat() if user["created_at"] else None
+                "created_at": user["created_at"].isoformat() if user["created_at"] else None,
+                "preferences": user.get("preferences") or {}
             }
 
     except HTTPException:
@@ -303,14 +337,7 @@ async def logout(authorization: Optional[str] = Header(None)):
     """
     print(f"\n[AUTH] 🚪 Logout request")
 
-    if not authorization:
-        raise HTTPException(status_code=401, detail="Not authenticated")
-
-    parts = authorization.split(" ")
-    if len(parts) != 2 or parts[0].lower() != "bearer":
-        raise HTTPException(status_code=401, detail="Invalid authorization header")
-
-    token = parts[1]
+    token = _extract_token(authorization)
 
     conn = _get_connection()
     try:
@@ -335,5 +362,59 @@ async def logout(authorization: Optional[str] = Header(None)):
         import traceback
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        conn.close()
+
+
+@router.get("/api/user/preferences")
+async def get_user_preferences(authorization: Optional[str] = Header(None)):
+    token = _extract_token(authorization)
+
+    conn = _get_connection()
+    try:
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            user = _get_user_for_token(cur, token)
+            if not user:
+                raise HTTPException(status_code=401, detail="Invalid or expired session")
+
+            return {
+                "user_id": str(user["user_id"]),
+                "preferences": user.get("preferences") or {}
+            }
+    finally:
+        conn.close()
+
+
+@router.patch("/api/user/preferences")
+async def update_user_preferences(request: PreferenceUpdateRequest, authorization: Optional[str] = Header(None)):
+    token = _extract_token(authorization)
+    update_payload = request.filtered_preferences()
+
+    conn = _get_connection()
+    try:
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            user = _get_user_for_token(cur, token)
+            if not user:
+                raise HTTPException(status_code=401, detail="Invalid or expired session")
+
+            cur.execute(
+                """
+                UPDATE users
+                SET preferences = COALESCE(preferences, '{}'::jsonb) || %s::jsonb,
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE user_id = %s
+                RETURNING preferences
+                """,
+                (json.dumps(update_payload), str(user["user_id"]))
+            )
+            updated = cur.fetchone()
+            conn.commit()
+
+            preferences = updated.get("preferences") if updated else update_payload
+
+            return {
+                "user_id": str(user["user_id"]),
+                "preferences": preferences or {}
+            }
     finally:
         conn.close()

@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback } from 'react';
 
 const AuthContext = createContext(null);
 
@@ -101,6 +101,46 @@ export function AuthProvider({ children }) {
     }
   };
 
+  const updateUserPreferences = useCallback((nextPreferences = {}) => {
+    if (!nextPreferences || Object.keys(nextPreferences).length === 0) {
+      return;
+    }
+
+    let updatedUser = null;
+
+    setUser((prev) => {
+      if (!prev) {
+        return prev;
+      }
+
+      const current = prev.preferences || {};
+      let changed = false;
+      const merged = { ...current };
+
+      for (const [key, value] of Object.entries(nextPreferences)) {
+        if (merged[key] !== value) {
+          changed = true;
+        }
+        merged[key] = value;
+      }
+
+      if (!changed) {
+        return prev;
+      }
+
+      updatedUser = {
+        ...prev,
+        preferences: merged
+      };
+
+      return updatedUser;
+    });
+
+    if (updatedUser) {
+      localStorage.setItem('user', JSON.stringify(updatedUser));
+    }
+  }, []);
+
   const value = {
     user,
     token,
@@ -108,6 +148,7 @@ export function AuthProvider({ children }) {
     signup,
     login,
     logout,
+    updateUserPreferences,
     isAuthenticated: !!token
   };
 
