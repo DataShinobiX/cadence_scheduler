@@ -50,3 +50,4 @@ httpx==0.26.0
 # Development
 black==24.1.1
 ruff==0.1.14
+email-validator==2.3.0

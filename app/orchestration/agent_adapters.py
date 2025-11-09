@@ -97,7 +97,7 @@ class Agent2Adapter:
         Input (from state):
         - decomposed_tasks: List[Dict]
         - user_preferences: Dict
-        - user_id: str
+        - user_id: str (REQUIRED - must be authenticated)
 
         Output (updates state):
         - scheduling_plan: List[Dict]
@@ -107,6 +107,14 @@ class Agent2Adapter:
         print("\n[AGENT 2] Scheduler Brain starting...")
 
         try:
+            # Validate user_id
+            user_id = state.get("user_id")
+            if not user_id or not self._is_valid_uuid(user_id):
+                error_msg = "Invalid or missing user_id - authentication required"
+                print(f"[AGENT 2] ❌ {error_msg}")
+                state["errors"].append(error_msg)
+                return state
+
             # Get tasks from state
             decomposed_tasks = state.get("decomposed_tasks", [])
 
@@ -118,17 +126,10 @@ class Agent2Adapter:
                 return state
 
             print(f"[AGENT 2] Scheduling {len(decomposed_tasks)} tasks...")
+            print(f"[AGENT 2] User ID: {user_id}")
 
             # Prepare preferences with user_id
             preferences = state.get("user_preferences", {}).copy()
-
-            # Use a valid test UUID if user_id is "default-user" or invalid
-            user_id = state.get("user_id", "default-user")
-            if user_id == "default-user" or not self._is_valid_uuid(user_id):
-                # Use a test UUID that exists in the database or will gracefully fail
-                user_id = "84d559ab-1792-4387-aa30-06982c0d5dcc"
-                print(f"[AGENT 2] Using test UUID for default user: {user_id}")
-
             preferences["user_id"] = user_id
 
             # Add default preferences if not provided
@@ -211,7 +212,7 @@ class Agent3Adapter:
         Execute Agent 3: Calendar Integrator
 
         Input (from state):
-        - user_id: str
+        - user_id: str (REQUIRED - must be authenticated)
         - scheduling_plan: List[Dict]
 
         Output (updates state):
@@ -220,6 +221,17 @@ class Agent3Adapter:
         print("\n[AGENT 3] Calendar Integrator starting...")
 
         try:
+            # Validate user_id
+            user_id = state.get("user_id")
+            if not user_id or not self._is_valid_uuid(user_id):
+                error_msg = "Invalid or missing user_id - authentication required"
+                print(f"[AGENT 3] ❌ {error_msg}")
+                state["errors"].append(error_msg)
+                state["scheduled_events"] = []
+                return state
+
+            print(f"[AGENT 3] User ID: {user_id}")
+
             # Check if we have a scheduling plan
             scheduling_plan = state.get("scheduling_plan", [])
             if not scheduling_plan:
@@ -229,14 +241,6 @@ class Agent3Adapter:
                 return state
 
             print(f"[AGENT 3] Processing {len(scheduling_plan)} tasks for calendar integration")
-
-            # Get user_id and validate/convert to UUID
-            user_id = state.get("user_id", "default-user")
-            if user_id == "default-user" or not self._is_valid_uuid(user_id):
-                user_id = "84d559ab-1792-4387-aa30-06982c0d5dcc"
-                print(f"[AGENT 3] Using test UUID for default user: {user_id}")
-            else:
-                print(f"[AGENT 3] User ID: {user_id}")
 
             # Create a simplified version that doesn't need database session
             # We'll use the Google Calendar API directly

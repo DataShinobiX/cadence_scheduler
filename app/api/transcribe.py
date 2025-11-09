@@ -1,4 +1,4 @@
-from fastapi import APIRouter, UploadFile, File, HTTPException, Form
+from fastapi import APIRouter, UploadFile, File, HTTPException, Form, Request
 from openai import OpenAI
 import uuid
 import os
@@ -6,6 +6,7 @@ from typing import Optional
 
 from app.orchestration.state import create_initial_state
 from app.orchestration.orchestrator import run_orchestration
+from app.middleware.auth import require_auth
 
 router = APIRouter()
 
@@ -18,20 +19,33 @@ client = OpenAI(api_key=API_KEY, base_url=BASE_URL)
 
 @router.post("/api/transcribe")
 async def transcribe_audio(
+    request: Request,
     file: UploadFile = File(...),
-    user_id: Optional[str] = Form(None),
     run_agents: Optional[str] = Form("true")  # Option to skip agents for testing
 ):
     """
     Complete pipeline:
-    1. Transcribes audio (Step 2)
-    2. Creates session and initializes AgentState (Step 3)
-    3. Runs agent orchestration (Steps 4-6): Agent 1 → Agent 2 → Agent 3
-    4. Returns scheduling results
+    1. Authenticates user (required)
+    2. Transcribes audio (Step 2)
+    3. Creates session and initializes AgentState (Step 3)
+    4. Runs agent orchestration (Steps 4-6): Agent 1 → Agent 2 → Agent 3
+    5. Returns scheduling results
 
     This is the main entry point from the frontend voice recorder.
+
+    Authentication required: Send session token in Authorization header.
     """
     try:
+        # ====================================================================
+        # STEP 1: Authenticate user
+        # ====================================================================
+        print("\n" + "=" * 60)
+        print("STEP 1: Authenticating user...")
+        print("=" * 60)
+
+        user_id = require_auth(request)
+        print(f"✅ Authenticated user: {user_id}")
+
         # ====================================================================
         # STEP 2: Transcribe the audio
         # ====================================================================
@@ -67,9 +81,8 @@ async def transcribe_audio(
         print("=" * 60)
 
         session_id = str(uuid.uuid4())
-        user_id = user_id or "default-user"
 
-        # Initialize AgentState
+        # Initialize AgentState (using authenticated user_id)
         state = create_initial_state(
             user_id=user_id,
             session_id=session_id,
