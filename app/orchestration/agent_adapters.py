@@ -10,6 +10,7 @@ import os
 from app.orchestration.state import AgentState
 from app.agents.task_decomposer import TaskDecomposerLLM, OpenAIClient
 from app.agents.scheduler_brain import schedule_tasks_for_next_seven_days
+from app.agents.meal_recommendation import MealRecommendationAgent
 
 
 class Agent1Adapter:
@@ -277,6 +278,33 @@ class Agent3Adapter:
             state["scheduled_events"] = []
 
         return state
+
+
+class Agent4Adapter:
+    """
+    Adapter for MealRecommendationAgent to work with AgentState
+    """
+
+    def __init__(self):
+        self.agent = MealRecommendationAgent()
+
+    def execute(self, state: AgentState) -> AgentState:
+        print("\n[AGENT 4] Meal Recommendation Advisor starting...")
+        try:
+            result_state = self.agent.execute(state)
+            recommendations = result_state.get("meal_recommendations", [])
+            print(f"[AGENT 4] ✅ Recommendations generated: {len(recommendations)}")
+            for rec in recommendations:
+                print(
+                    f"  - ({rec.get('meal')}) {rec.get('message')} "
+                    f"[confidence={rec.get('confidence')}]"
+                )
+            return result_state
+        except Exception as e:
+            error_msg = f"Agent 4 failed: {str(e)}"
+            print(f"[AGENT 4] ❌ {error_msg}")
+            state["errors"].append(error_msg)
+            return state
 
 
 class SimplifiedCalendarIntegrator:

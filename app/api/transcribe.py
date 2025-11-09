@@ -118,6 +118,8 @@ async def transcribe_audio(
                     "scheduling_plan": final_state.get("scheduling_plan", []),
                     "conflicts": final_state.get("conflicts", []),
                     "needs_user_input": final_state.get("needs_user_input", False),
+                    "meal_recommendations": final_state.get("meal_recommendations", []),
+                    "proactive_notifications": final_state.get("proactive_notifications", []),
 
                     # Metadata
                     "message": _generate_response_message(final_state),

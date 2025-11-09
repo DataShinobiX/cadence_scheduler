@@ -30,6 +30,12 @@ export default function Reminders() {
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
           </svg>
         );
+      case 'recommendation':
+        return (
+          <svg className="h-6 w-6 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M14.752 11.168l-3.197 3.197a.75.75 0 01-1.06 0l-1.947-1.947a.75.75 0 011.06-1.06l1.417 1.416 2.667-2.666a.75.75 0 011.06 1.06zm6.456-2.61a5.967 5.967 0 00-1.31-1.902 5.974 5.974 0 00-4.242-1.757h-.063a5.978 5.978 0 00-4.234 1.732L12 7.99l-.36-.36a5.977 5.977 0 00-4.234-1.732h-.063A5.974 5.974 0 003.1 8.558a5.962 5.962 0 00-1.31 1.902 5.96 5.96 0 00-.434 2.24c0 .78.153 1.538.434 2.24a5.967 5.967 0 001.31 1.902l7.428 7.428a1.5 1.5 0 002.122 0l7.428-7.428a5.967 5.967 0 001.31-1.902 5.96 5.96 0 00.434-2.24 5.96 5.96 0 00-.434-2.24z"/>
+          </svg>
+        );
       default:
         return (
           <svg className="h-6 w-6 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -47,6 +53,8 @@ export default function Reminders() {
         return 'border-red-300 bg-red-50';
       case 'warning':
         return 'border-yellow-300 bg-yellow-50';
+      case 'recommendation':
+        return 'border-purple-300 bg-purple-50';
       default:
         return 'border-blue-300 bg-blue-50';
     }

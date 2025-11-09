@@ -71,6 +71,16 @@ export default function Toast({ message, type = 'info', duration = 5000, onClose
       ),
       progressBar: 'bg-blue-500',
     },
+    recommendation: {
+      bg: 'bg-white',
+      border: 'border-l-4 border-purple-400',
+      icon: (
+        <svg className="h-6 w-6 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M14.752 11.168l-3.197 3.197a.75.75 0 01-1.06 0l-1.947-1.947a.75.75 0 011.06-1.06l1.417 1.416 2.667-2.666a.75.75 0 011.06 1.06zm6.456-2.61a5.967 5.967 0 00-1.31-1.902 5.974 5.974 0 00-4.242-1.757h-.063a5.978 5.978 0 00-4.234 1.732L12 7.99l-.36-.36a5.977 5.977 0 00-4.234-1.732h-.063A5.974 5.974 0 003.1 8.558a5.962 5.962 0 00-1.31 1.902 5.96 5.96 0 00-.434 2.24c0 .78.153 1.538.434 2.24a5.967 5.967 0 001.31 1.902l7.428 7.428a1.5 1.5 0 002.122 0l7.428-7.428a5.967 5.967 0 001.31-1.902 5.96 5.96 0 00.434-2.24 5.96 5.96 0 00-.434-2.24z"/>
+        </svg>
+      ),
+      progressBar: 'bg-purple-400',
+    },
   };
 
   const variant = variants[type] || variants.info;
