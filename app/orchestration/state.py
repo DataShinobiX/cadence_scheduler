@@ -29,6 +29,10 @@ class AgentState(TypedDict):
     # ==================== Agent 3 Output ====================
     scheduled_events: List[str]             # Google Calendar event IDs
 
+    # ==================== Recommendation Agent Output ====================
+    meal_recommendations: List[Dict[str, Any]]  # Meal ordering guidance
+    proactive_notifications: List[Dict[str, Any]]  # Structured notifications to surface to UI
+
     # ==================== Shared Context ====================
     existing_calendar: List[Dict[str, Any]] # Current calendar state
     user_preferences: Dict[str, Any]        # User preferences for scheduling
@@ -69,6 +73,8 @@ def create_initial_state(
         existing_calendar=[],
         user_preferences=user_preferences or {},
         conversation_history=[],
+        meal_recommendations=[],
+        proactive_notifications=[],
         errors=[],
         current_agent=None,
         created_at=datetime.utcnow().isoformat(),

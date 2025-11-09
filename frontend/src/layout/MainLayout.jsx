@@ -1,9 +1,10 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../components/ToastContainer';
 import { useNotificationHistory } from '../hooks/useNotificationHistory';
-import { getUpcomingNotifications, getWeeklyHighlights } from '../services/notifications';
+import { getUpcomingNotifications, getWeeklyHighlights, getMealSuggestion } from '../services/notifications';
+import MealOrderModal from '../components/MealOrderModal';
 
 const tabs = [
   { name: 'Voice Assistant', path: '/dashboard' },
@@ -16,7 +17,9 @@ export default function MainLayout({ children }) {
   const location = useLocation();
   const navigate = useNavigate();
   const { user, logout } = useAuth();
-  const { showInfo } = useToast();
+  const { showInfo, showRecommendation, showSuccess } = useToast();
+  const [mealModalOpen, setMealModalOpen] = useState(false);
+  const [mealModalPayload, setMealModalPayload] = useState({ message: '', meal: 'lunch' });
   const { unreadCount } = useNotificationHistory();
 
   useEffect(() => {
@@ -73,6 +76,50 @@ export default function MainLayout({ children }) {
       cancelScheduled && cancelScheduled();
     };
   }, [user, showInfo]);
+
+  // Independent "thread" for meal suggestions
+  useEffect(() => {
+    let cancelled = false;
+    const THROTTLE_MS = 10 * 60 * 1000; // 10 minutes, separate cycle for meal suggestions
+
+    const lastShown = Number(localStorage.getItem('meal_suggestion_last_shown_at') || 0);
+    const now = Date.now();
+    if (now - lastShown < THROTTLE_MS) {
+      return;
+    }
+
+    const schedule = (cb) => {
+      if (typeof window.requestIdleCallback === 'function') {
+        const id = window.requestIdleCallback(cb, { timeout: 2000 });
+        return () => window.cancelIdleCallback && window.cancelIdleCallback(id);
+      }
+      const id = setTimeout(cb, 1200);
+      return () => clearTimeout(id);
+    };
+
+    const cancelScheduled = schedule(async () => {
+      if (cancelled || document.visibilityState !== 'visible') return;
+      try {
+        const userId = user?.id || user?.user_id || null;
+        const meal = await getMealSuggestion(userId, { useMock: true });
+        if (!cancelled && meal?.should_notify && meal?.message) {
+          // Open interactive modal instead of only showing toast
+          setMealModalPayload({ message: meal.message, meal: meal.meal || 'lunch' });
+          setMealModalOpen(true);
+          // Also log a toast entry so it appears in history
+          showRecommendation(meal.message, 6000);
+          localStorage.setItem('meal_suggestion_last_shown_at', String(Date.now()));
+        }
+      } catch (_) {
+        // ignore errors for meal suggestions
+      }
+    });
+
+    return () => {
+      cancelled = true;
+      cancelScheduled && cancelScheduled();
+    };
+  }, [user, showRecommendation]);
 
   const handleLogout = async () => {
     await logout();
@@ -133,7 +180,18 @@ export default function MainLayout({ children }) {
           </Link>
         ))}
       </nav>
-      <main className="flex-1 p-6 animate-fadeIn">{children}</main>
+      <main className="flex-1 p-6 animate-fadeIn">
+        {children}
+        <MealOrderModal
+          isOpen={mealModalOpen}
+          onClose={() => setMealModalOpen(false)}
+          initialMessage={mealModalPayload.message}
+          meal={mealModalPayload.meal}
+          onPlaced={(opt) => {
+            showSuccess('Order placed!', 5000);
+          }}
+        />
+      </main>
     </div>
   );
 }

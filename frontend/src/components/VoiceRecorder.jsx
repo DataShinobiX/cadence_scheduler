@@ -1,13 +1,16 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import useVoiceRecorder from '../hooks/useVoiceRecorder';
 import { uploadAudio } from '../utils/api';
 import AgentThinkingFlow from './AgentThinkingFlow';
+import { useToast } from '../components/ToastContainer';
 
 export default function VoiceRecorder() {
   const [transcript, setTranscript] = useState('');
   const [result, setResult] = useState(null);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const { showRecommendation } = useToast();
+  const shownRecommendations = useRef(new Set());
 
   const {
     isRecording,
@@ -41,6 +44,28 @@ export default function VoiceRecorder() {
 
     sendAudioForTranscription();
   }, [audioBlob]);
+
+  useEffect(() => {
+    if (loading) {
+      shownRecommendations.current = new Set();
+    }
+  }, [loading]);
+
+  useEffect(() => {
+    if (!result || !result.meal_recommendations || result.meal_recommendations.length === 0) {
+      return;
+    }
+
+    result.meal_recommendations.forEach((recommendation) => {
+      const recId = recommendation.id || `${recommendation.date}-${recommendation.meal}`;
+      if (shownRecommendations.current.has(recId)) {
+        return;
+      }
+      shownRecommendations.current.add(recId);
+      const message = recommendation.message || `Consider ordering ${recommendation.meal}.`;
+      showRecommendation(message, 9000);
+    });
+  }, [result, showRecommendation]);
 
   return (
     <div className="space-y-6">
@@ -243,6 +268,42 @@ export default function VoiceRecorder() {
                       <div className="flex-1">
                         <p className="font-medium">{plan.description}</p>
                         <p className="text-sm text-green-700">{new Date(plan.start_time).toLocaleString()}</p>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {result.meal_recommendations && result.meal_recommendations.length > 0 && (
+              <div className="bg-purple-50/60 border border-purple-200 rounded-lg p-4">
+                <div className="flex items-center gap-2 mb-3">
+                  <svg className="h-5 w-5 text-purple-600" fill="currentColor" viewBox="0 0 20 20">
+                    <path d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.83a4 4 0 010-5.656z" />
+                  </svg>
+                  <p className="text-purple-900 font-semibold">Care Recommendations</p>
+                </div>
+                <ul className="space-y-3">
+                  {result.meal_recommendations.map((rec) => (
+                    <li key={rec.id} className="flex items-start gap-3 bg-white/70 border border-purple-100 rounded-lg p-3">
+                      <div className="mt-0.5">
+                        <svg className="h-4 w-4 text-purple-500" fill="currentColor" viewBox="0 0 20 20">
+                          <path d="M2 5a2 2 0 012-2h12a2 2 0 012 2v1.5a1.5 1.5 0 01-.356.966l-6.144 7.38a2 2 0 01-3.1 0L2.356 7.466A1.5 1.5 0 012 6.5V5z" />
+                        </svg>
+                      </div>
+                      <div className="flex-1">
+                        <p className="text-purple-900 font-medium">{rec.message}</p>
+                        <p className="text-sm text-purple-600 mt-1">
+                          {rec.meal === 'lunch' ? 'Lunch window' : 'Dinner window'} · {rec.weekday}
+                          {rec.confidence ? ` · confidence ${Math.round(rec.confidence * 100)}%` : ''}
+                        </p>
+                        {rec.supporting_factors && rec.supporting_factors.length > 0 && (
+                          <ul className="mt-2 text-xs text-purple-500 space-y-1">
+                            {rec.supporting_factors.map((factor, index) => (
+                              <li key={`${rec.id}-factor-${index}`}>• {factor}</li>
+                            ))}
+                          </ul>
+                        )}
                       </div>
                     </li>
                   ))}

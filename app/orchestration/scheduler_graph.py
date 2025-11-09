@@ -1,6 +1,11 @@
 from langgraph.graph import StateGraph, END
 from app.orchestration.state import AgentState
-from app.orchestration.agent_adapters import Agent1Adapter, Agent2Adapter, Agent3Adapter
+from app.orchestration.agent_adapters import (
+    Agent1Adapter,
+    Agent2Adapter,
+    Agent3Adapter,
+    Agent4Adapter,
+)
 
 
 # --- 1. Initialize Agent Adapters ---
@@ -8,6 +13,7 @@ from app.orchestration.agent_adapters import Agent1Adapter, Agent2Adapter, Agent
 agent1 = Agent1Adapter()
 agent2 = Agent2Adapter()
 agent3 = Agent3Adapter()
+agent4 = Agent4Adapter()
 
 
 def task_decomposer_node(state: AgentState) -> AgentState:
@@ -32,6 +38,14 @@ def calendar_integrator_node(state: AgentState) -> AgentState:
     print("ORCHESTRATOR: Calling Agent 3 (Calendar Integrator)")
     print("=" * 60)
     return agent3.execute(state)
+
+
+def meal_recommendation_node(state: AgentState) -> AgentState:
+    """Agent 4: Meal Recommendation Advisor"""
+    print("=" * 60)
+    print("ORCHESTRATOR: Calling Agent 4 (Meal Recommendation Advisor)")
+    print("=" * 60)
+    return agent4.execute(state)
 
 
 def ask_user_node(state: AgentState) -> AgentState:
@@ -97,6 +111,7 @@ def create_scheduler_graph():
     workflow.add_node("decompose", task_decomposer_node)
     workflow.add_node("schedule", scheduler_brain_node)
     workflow.add_node("integrate", calendar_integrator_node)
+    workflow.add_node("meal_advisor", meal_recommendation_node)
     workflow.add_node("ask_user", ask_user_node)
 
     # --- 5. Add Edges ---
@@ -108,7 +123,8 @@ def create_scheduler_graph():
     workflow.add_edge("decompose", "schedule")
 
     # After 'integrate' (Agent 3) finishes, the flow is *done*.
-    workflow.add_edge("integrate", END)
+    workflow.add_edge("integrate", "meal_advisor")
+    workflow.add_edge("meal_advisor", END)
 
     # Conditional Edge
     # After 'schedule' (Agent 2) finishes, call our routing function

@@ -69,6 +69,7 @@ class SchedulingOrchestrator:
         num_scheduled = len(state.get("scheduling_plan", []))
         num_conflicts = len(state.get("conflicts", []))
         num_events = len(state.get("scheduled_events", []))
+        num_meal_recs = len(state.get("meal_recommendations", []))
         errors = state.get("errors", [])
 
         print(f"[ORCHESTRATOR] 📊 Results:")
@@ -76,6 +77,7 @@ class SchedulingOrchestrator:
         print(f"[ORCHESTRATOR]   Tasks Scheduled: {num_scheduled}")
         print(f"[ORCHESTRATOR]   Conflicts: {num_conflicts}")
         print(f"[ORCHESTRATOR]   Calendar Events Created: {num_events}")
+        print(f"[ORCHESTRATOR]   Meal Recommendations: {num_meal_recs}")
 
         if errors:
             print(f"[ORCHESTRATOR] ⚠️  Errors: {len(errors)}")

@@ -8,6 +8,7 @@ from psycopg2.extras import RealDictCursor
 
 from app.db.calendar_events import fetch_calendar_events
 from app.services.weather import get_weather_summary
+import json
 
 router = APIRouter()
 
@@ -121,7 +122,7 @@ async def _generate_notification_text(event: Dict[str, Any], weather: Dict[str, 
         from langchain_openai import ChatOpenAI
         from langchain_core.messages import SystemMessage, HumanMessage
 
-        llm = ChatOpenAI(model="gpt-5", api_key=API_KEY, base_url=BASE_URL, temperature=1.0)
+        llm = ChatOpenAI(model="gpt-5-mini", api_key=API_KEY, base_url=BASE_URL, temperature=1.0)
         system = SystemMessage(
             content=(
                 "You are a helpful assistant that writes SHORT, friendly notifications for upcoming events. "
@@ -456,4 +457,228 @@ async def get_weekly_highlights(
     }
     print(f"[NOTIFY] ✅ Returning weekly highlight")
     return payload
+
+
+# -----------------------------------------------------------------------------
+# Meal suggestion based on daily busyness
+# -----------------------------------------------------------------------------
+def _merge_intervals(intervals: List[tuple[datetime, datetime]]) -> List[tuple[datetime, datetime]]:
+    if not intervals:
+        return []
+    intervals = sorted(intervals, key=lambda x: x[0])
+    merged: List[tuple[datetime, datetime]] = []
+    cur_start, cur_end = intervals[0]
+    for start, end in intervals[1:]:
+        if start <= cur_end:
+            if end > cur_end:
+                cur_end = end
+        else:
+            merged.append((cur_start, cur_end))
+            cur_start, cur_end = start, end
+    merged.append((cur_start, cur_end))
+    return merged
+
+
+def _compute_daily_busyness(events: List[Dict[str, Any]], day_start: datetime, day_end: datetime) -> Dict[str, Any]:
+    spans: List[tuple[datetime, datetime]] = []
+    meeting_like = 0
+    for ev in events:
+        s = ev.get("start_datetime")
+        e = ev.get("end_datetime")
+        title = (ev.get("summary") or "").strip().lower()
+        if not isinstance(s, datetime) or not isinstance(e, datetime):
+            continue
+        # Clip to today's window
+        start = max(s, day_start)
+        end = min(e, day_end)
+        if end <= start:
+            continue
+        spans.append((start, end))
+        # Count as meeting-like if has location or is_external or keyword
+        if ev.get("is_external") or (ev.get("location") or "").strip():
+            meeting_like += 1
+        else:
+            if any(k in title for k in ["meeting", "call", "sync", "standup", "review", "interview"]):
+                meeting_like += 1
+
+    merged = _merge_intervals(spans)
+    total_minutes = 0
+    earliest = None
+    latest = None
+    for s, e in merged:
+        total_minutes += int((e - s).total_seconds() // 60)
+        if earliest is None or s < earliest:
+            earliest = s
+        if latest is None or e > latest:
+            latest = e
+    return {
+        "busy_minutes": total_minutes,
+        "busy_hours": round(total_minutes / 60, 2),
+        "block_count": len(merged),
+        "meeting_like_count": meeting_like,
+        "earliest_start": earliest,
+        "latest_end": latest,
+    }
+
+
+def _infer_meal(now: datetime) -> str:
+    hour = now.hour
+    if hour < 15:
+        return "lunch"
+    return "dinner"
+
+
+def _mock_meal_message(first_name: Optional[str], meal: str) -> str:
+    sal = f"Hey {first_name}, " if first_name else ""
+    return f"{sal} seems like you're having a busy day, should I order {meal} for you from takeaway.com?"
+
+
+@router.get("/api/notifications/meal_suggestion")
+async def get_meal_suggestion(
+    user_id: Optional[str] = Query(default=None),
+    use_mock: bool = Query(default=False, description="Return a generic suggestion without LLM decision"),
+    meal: Optional[str] = Query(default=None, description="Force 'lunch' or 'dinner'; defaults based on current time"),
+) -> Dict[str, Any]:
+    print("\n" + "=" * 60)
+    print("[NOTIFY] 🍽️ Incoming meal suggestion request")
+    print("=" * 60)
+    print(f"[NOTIFY] Params: user_id={user_id} use_mock={use_mock} meal={meal}")
+
+    effective_user_id = user_id or "default-user"
+    if effective_user_id == "default-user":
+        effective_user_id = "84d559ab-1792-4387-aa30-06982c0d5dcc"
+    print(f"[NOTIFY] 👤 Effective user_id: {effective_user_id}")
+
+    now = datetime.now()
+    day_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    day_end = now.replace(hour=23, minute=59, second=59, microsecond=999999)
+    print(f"[NOTIFY] 🗓️  Today window: {day_start.isoformat()} → {day_end.isoformat()}")
+
+    events = fetch_calendar_events(effective_user_id, day_start, day_end)
+    print(f"[NOTIFY] 📦 Retrieved {len(events)} event(s) for today")
+
+    user_name = _get_user_name(effective_user_id)
+    first_name = _first_name(user_name)
+    chosen_meal = (meal or "").strip().lower() or _infer_meal(now)
+
+    # Mock path: no LLM call, return a soft generic suggestion
+    if use_mock:
+        message = _mock_meal_message(first_name, chosen_meal)
+        payload = {
+            "should_notify": True,
+            "message": message,
+            "meal": chosen_meal,
+            "strategy": "mock",
+            "window": {"start": day_start.isoformat(), "end": day_end.isoformat()},
+            "event_count": len(events),
+        }
+        print(f"[NOTIFY] ✅ Returning mock meal suggestion")
+        return payload
+
+    # Compute busyness and let LLM decide if it's busy enough to prompt ordering
+    stats = _compute_daily_busyness(events, day_start, day_end)
+    print(f"[NOTIFY] 📊 Busyness: hours={stats['busy_hours']} blocks={stats['block_count']} meeting_like={stats['meeting_like_count']}")
+
+    busy_default = stats["busy_minutes"] >= 6 * 60 or stats["meeting_like_count"] >= 6
+    earliest_str = stats["earliest_start"].strftime("%H:%M") if stats["earliest_start"] else ""
+    latest_str = stats["latest_end"].strftime("%H:%M") if stats["latest_end"] else ""
+
+    try:
+        from langchain_openai import ChatOpenAI
+        from langchain_core.messages import SystemMessage, HumanMessage
+
+        llm = ChatOpenAI(model="gpt-5", api_key=API_KEY, base_url=BASE_URL, temperature=1)
+        system = SystemMessage(
+            content=(
+                "You determine if a user's day is busy enough to softly suggest ordering food. "
+                "Use a friendly, non-pushy tone. Decide based on booked hours and meeting count. "
+                "Return STRICT JSON: {\"busy\": true|false, \"message\": \"...\"}. "
+                "Keep message under 160 characters. Suggest ordering {meal} if busy."
+            ).replace("{meal}", chosen_meal)
+        )
+        human_payload = {
+            "today": {
+                "busy_hours": stats["busy_hours"],
+                "block_count": stats["block_count"],
+                "meeting_like_count": stats["meeting_like_count"],
+                "earliest_start_hhmm": earliest_str,
+                "latest_end_hhmm": latest_str,
+            },
+            "now_hour": now.hour,
+            "weekday": now.strftime("%a"),
+            "meal": chosen_meal,
+            "guidance": {
+                "busy_if_hours_at_least": 5.0,
+                "busy_if_meetings_at_least": 6,
+                "tone": "soft, optional, helpful",
+            },
+            "user_first_name": first_name or "",
+        }
+        human = HumanMessage(content=f"Decide and respond in JSON only:\n{human_payload}")
+        print(f"[NOTIFY]   🤖 Invoking LLM for meal suggestion decision")
+        resp = llm.invoke([system, human])
+        raw = (getattr(resp, "content", None) or "").strip()
+        data = {}
+        try:
+            data = json.loads(raw)
+        except Exception:
+            # Some models wrap JSON in text; try to extract braces
+            start_i = raw.find("{")
+            end_i = raw.rfind("}")
+            if start_i != -1 and end_i != -1 and end_i > start_i:
+                data = json.loads(raw[start_i : end_i + 1])
+        busy = bool(data.get("busy", busy_default))
+        msg = (data.get("message") or "").strip()
+        if not msg:
+            if busy:
+                sal = f"Hey {first_name}, " if first_name else ""
+                msg = f"{sal}packed day ahead—want me to order {chosen_meal} from takeaway.com?"
+            else:
+                sal = f"Hey {first_name}, " if first_name else ""
+                msg = f"{sal}looks manageable today. I can still order {chosen_meal} if you like."
+        if len(msg) > 200:
+            msg = msg[:197] + "..."
+        payload = {
+            "should_notify": busy,
+            "message": msg,
+            "meal": chosen_meal,
+            "strategy": "llm",
+            "window": {"start": day_start.isoformat(), "end": day_end.isoformat()},
+            "event_count": len(events),
+            "busyness": {
+                "busy_hours": stats["busy_hours"],
+                "block_count": stats["block_count"],
+                "meeting_like_count": stats["meeting_like_count"],
+                "earliest_start": stats["earliest_start"].isoformat() if stats["earliest_start"] else None,
+                "latest_end": stats["latest_end"].isoformat() if stats["latest_end"] else None,
+            },
+        }
+        print(f"[NOTIFY] ✅ Returning LLM-based meal suggestion (should_notify={busy})")
+        return payload
+    except Exception as e:
+        print(f"[NOTIFY]   ❌ LLM decision error: {e}")
+        sal = f"Hey {first_name}, " if first_name else ""
+        if busy_default:
+            message = f"{sal}busy day—should I order {chosen_meal} from takeaway.com?"
+            should_notify = True
+        else:
+            message = f"{sal}your day looks okay. I can order {chosen_meal} if you want."
+            should_notify = False
+        payload = {
+            "should_notify": should_notify,
+            "message": message,
+            "meal": chosen_meal,
+            "strategy": "fallback",
+            "window": {"start": day_start.isoformat(), "end": day_end.isoformat()},
+            "event_count": len(events),
+            "busyness": {
+                "busy_hours": stats["busy_hours"],
+                "block_count": stats["block_count"],
+                "meeting_like_count": stats["meeting_like_count"],
+                "earliest_start": stats["earliest_start"].isoformat() if stats["earliest_start"] else None,
+                "latest_end": stats["latest_end"].isoformat() if stats["latest_end"] else None,
+            },
+        }
+        print(f"[NOTIFY] ✅ Returning fallback meal suggestion (should_notify={should_notify})")
+        return payload
 

@@ -17,3 +17,13 @@ export async function getWeeklyHighlights(userId) {
 }
 
 
+export async function getMealSuggestion(userId, { useMock = false, meal } = {}) {
+  const query = new URLSearchParams();
+  if (userId) query.set('user_id', userId);
+  if (useMock) query.set('use_mock', 'true');
+  if (meal) query.set('meal', String(meal));
+  const endpoint = `/api/notifications/meal_suggestion${query.toString() ? `?${query.toString()}` : ''}`;
+  return authenticatedFetch(endpoint, { method: 'GET' });
+}
+
+
