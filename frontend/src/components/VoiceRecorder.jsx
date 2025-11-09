@@ -264,6 +264,69 @@ export default function VoiceRecorder() {
           </div>
         </div>
       )}
+
+      {/* Scheduling Conflicts */}
+      {result && result.conflicts && result.conflicts.length > 0 && (
+        <div className="p-6 bg-gradient-to-br from-yellow-50 to-orange-50 border-l-4 border-yellow-500 rounded-lg shadow-md animate-slideDown">
+          <div className="flex items-start gap-3 mb-4">
+            <div className="flex-shrink-0 w-10 h-10 bg-yellow-500 rounded-full flex items-center justify-center">
+              <svg className="h-6 w-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+              </svg>
+            </div>
+            <div className="flex-1">
+              <h4 className="text-yellow-900 font-bold text-lg">Scheduling Conflicts</h4>
+              <p className="text-yellow-700 text-sm mt-1">Some tasks couldn't be scheduled automatically</p>
+            </div>
+          </div>
+
+          <div className="space-y-3">
+            {result.conflicts.map((conflict, index) => (
+              <div key={index} className="bg-white/60 rounded-lg p-4 border border-yellow-200">
+                <div className="flex items-start gap-3">
+                  <span className="flex-shrink-0 w-6 h-6 bg-yellow-400 text-yellow-900 rounded-full flex items-center justify-center text-sm font-bold">
+                    {index + 1}
+                  </span>
+                  <div className="flex-1">
+                    <p className="font-semibold text-yellow-900 mb-2">{conflict.task}</p>
+
+                    {/* AI Reasoning */}
+                    {conflict.llm_explanation && (
+                      <div className="mb-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                        <div className="flex items-center gap-2 mb-1">
+                          <svg className="h-4 w-4 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
+                            <path d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z"/>
+                            <path fillRule="evenodd" d="M4 5a2 2 0 012-2 3 3 0 003 3h2a3 3 0 003-3 2 2 0 012 2v11a2 2 0 01-2 2H6a2 2 0 01-2-2V5zm9.707 5.707a1 1 0 00-1.414-1.414L9 12.586l-1.293-1.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd"/>
+                          </svg>
+                          <span className="text-xs font-bold text-blue-900 uppercase">AI Analysis</span>
+                        </div>
+                        <p className="text-sm text-blue-800 italic leading-relaxed">{conflict.llm_explanation}</p>
+                      </div>
+                    )}
+
+                    <div className="space-y-2 text-sm">
+                      <div className="flex items-start gap-2">
+                        <svg className="h-4 w-4 text-yellow-600 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd"/>
+                        </svg>
+                        <span className="text-yellow-800"><strong>Reason:</strong> {conflict.reason}</span>
+                      </div>
+                      {conflict.suggestion && (
+                        <div className="flex items-start gap-2">
+                          <svg className="h-4 w-4 text-yellow-600 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                            <path fillRule="evenodd" d="M11.3 1.046A1 1 0 0112 2v5h4a1 1 0 01.82 1.573l-7 10A1 1 0 018 18v-5H4a1 1 0 01-.82-1.573l7-10a1 1 0 011.12-.38z" clipRule="evenodd"/>
+                          </svg>
+                          <span className="text-yellow-800"><strong>Suggestion:</strong> {conflict.suggestion}</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -257,9 +257,10 @@ def llm_choose_best_slot(
     candidates: List[List['TimeSlot']],
     preferences: Dict,
     already_scheduled: List[Dict]
-) -> Optional[List['TimeSlot']]:
+) -> tuple[Optional[List['TimeSlot']], Optional[str]]:
     """
     Uses an LLM to choose the best slot from a list of candidates.
+    Returns: (chosen_slot, reasoning) - reasoning is provided even if slot is None
     """
     print(f"\n[SCHEDULER] 🎯 Choosing best slot for task: '{task.description}'")
     print(f"[SCHEDULER]   Duration: {task.duration_minutes} min")
@@ -317,36 +318,36 @@ def llm_choose_best_slot(
         print(f"[SCHEDULER]   Selected slot: {best_id}")
         print(f"[SCHEDULER]   Reasoning: {reasoning}")
 
-        # If no best_id returned (e.g., no feasible slot), signal no selection
+        # If no best_id returned (e.g., no feasible slot), return None with reasoning
         if not best_id or not isinstance(best_id, str) or not best_id.startswith("slot_"):
-            print(f"[SCHEDULER] ⚠️ Invalid or missing slot_id, returning None")
-            return None
+            print(f"[SCHEDULER] ⚠️ Invalid or missing slot_id, returning None with reasoning")
+            return (None, reasoning)
 
         # Find the original slot window that corresponds to the chosen ID
         parts = best_id.split('_')
         if len(parts) != 2 or not parts[1]:
             print(f"[SCHEDULER] ⚠️ Invalid slot_id format, returning None")
-            return None
+            return (None, reasoning)
         suffix = parts[1]
         if not suffix.isdigit():
             print(f"[SCHEDULER] ⚠️ Invalid slot number, returning None")
-            return None
+            return (None, reasoning)
         chosen_index = int(suffix) - 1
         if chosen_index < 0 or chosen_index >= len(candidates):
             print(f"[SCHEDULER] ⚠️ Slot index {chosen_index} out of range (0-{len(candidates)-1}), returning None")
-            return None
+            return (None, reasoning)
 
         chosen_slot = candidates[chosen_index]
         print(f"[SCHEDULER] 🎉 Selected slot #{chosen_index}: {chosen_slot[0].start.isoformat()} - {chosen_slot[-1].end.isoformat()}")
-        return chosen_slot
+        return (chosen_slot, reasoning)
     except (json.JSONDecodeError, KeyError, IndexError, TypeError, AttributeError) as e:
         print(f"[SCHEDULER] ❌ Error parsing LLM response: {e}")
         print(f"[SCHEDULER] 📄 Raw response: {response_str[:500]}...")
         print(f"[SCHEDULER] ⚠️ Defaulting to first candidate slot")
         if candidates:
             print(f"[SCHEDULER] 🔄 Using fallback slot: {candidates[0][0].start.isoformat()} - {candidates[0][-1].end.isoformat()}")
-            return candidates[0]
-        return None
+            return (candidates[0], "Fallback: Using first available slot due to LLM parsing error")
+        return (None, f"Error parsing LLM response: {str(e)}")
 
 
 def get_existing_calendar(user_id: str, date_range: Tuple[datetime, datetime]) -> List[CalendarEvent]:
@@ -577,13 +578,16 @@ def schedule_tasks_intelligently(
         # NEW: Instead of scoring, we ask the LLM to choose.
         # ----------------------------------------------------
         print(f"\nAsking LLM to choose best slot for: '{task.description}'")
-        best_slot_window = llm_choose_best_slot(task, candidates, preferences, scheduled_tasks)
+        best_slot_window, llm_reasoning = llm_choose_best_slot(task, candidates, preferences, scheduled_tasks)
         if best_slot_window is None:
+            # Include LLM's reasoning in the conflict report
             conflicts.append({
                 "task": task.description,
-                "reason": "LLM could not identify a feasible slot that satisfies constraints and availability.",
-                "suggestion": "Expand the scheduling window, adjust constraints, or provide alternative times."
+                "reason": llm_reasoning or "LLM could not identify a feasible slot that satisfies constraints and availability.",
+                "suggestion": "Expand the scheduling window, adjust constraints, or provide alternative times.",
+                "llm_explanation": llm_reasoning  # Preserve full LLM reasoning
             })
+            print(f"[SCHEDULER] ⚠️ Conflict added with LLM reasoning: {llm_reasoning}")
             continue
         
         start_time = best_slot_window[0].start

@@ -42,6 +42,10 @@ class AgentState(TypedDict):
     created_at: Optional[str]               # When this session started
     updated_at: Optional[str]               # Last update time
 
+    # ==================== Conflict Resolution ====================
+    conflict_resolution_attempts: int       # Number of times we've retried conflict resolution
+    show_conflicts_to_user: bool            # Flag to show conflicts in UI
+
 
 def create_initial_state(
     user_id: str,
@@ -68,5 +72,7 @@ def create_initial_state(
         errors=[],
         current_agent=None,
         created_at=datetime.utcnow().isoformat(),
-        updated_at=datetime.utcnow().isoformat()
+        updated_at=datetime.utcnow().isoformat(),
+        conflict_resolution_attempts=0,
+        show_conflicts_to_user=False
     )

@@ -7,6 +7,7 @@ import Auth from './pages/Auth';
 import Dashboard from './pages/Dashboard';
 import Calendar from './pages/Calendar';
 import Tasks from './pages/Tasks';
+import Reminders from './pages/Reminders';
 import MainLayout from './layout/MainLayout';
 
 function App() {
@@ -29,6 +30,7 @@ function App() {
                     <Route path="/dashboard" element={<Dashboard />} />
                     <Route path="/calendar" element={<Calendar />} />
                     <Route path="/tasks" element={<Tasks />} />
+                    <Route path="/reminders" element={<Reminders />} />
                   </Routes>
                 </MainLayout>
               </ProtectedRoute>

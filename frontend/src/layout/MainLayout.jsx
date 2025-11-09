@@ -2,12 +2,14 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../components/ToastContainer';
+import { useNotificationHistory } from '../hooks/useNotificationHistory';
 import { getUpcomingNotifications, getWeeklyHighlights } from '../services/notifications';
 
 const tabs = [
   { name: 'Voice Assistant', path: '/dashboard' },
   { name: 'Calendar', path: '/calendar' },
   { name: 'Tasks', path: '/tasks' },
+  { name: 'Reminders', path: '/reminders' },
 ];
 
 export default function MainLayout({ children }) {
@@ -15,6 +17,7 @@ export default function MainLayout({ children }) {
   const navigate = useNavigate();
   const { user, logout } = useAuth();
   const { showInfo } = useToast();
+  const { unreadCount } = useNotificationHistory();
 
   useEffect(() => {
     let cancelled = false;
@@ -114,13 +117,19 @@ export default function MainLayout({ children }) {
           <Link
             key={tab.path}
             to={tab.path}
-            className={`px-4 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 transform ${
+            className={`relative px-4 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 transform ${
               location.pathname === tab.path
                 ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-md scale-105'
                 : 'text-gray-700 hover:bg-blue-50 hover:text-blue-700 hover:scale-105'
             }`}
           >
             {tab.name}
+            {/* Unread badge for Reminders tab */}
+            {tab.path === '/reminders' && unreadCount > 0 && (
+              <span className="absolute -top-1 -right-1 flex items-center justify-center w-5 h-5 bg-red-500 text-white text-xs font-bold rounded-full border-2 border-white shadow-md animate-pulse">
+                {unreadCount > 9 ? '9+' : unreadCount}
+              </span>
+            )}
           </Link>
         ))}
       </nav>

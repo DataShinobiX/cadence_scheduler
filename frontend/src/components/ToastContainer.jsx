@@ -1,15 +1,20 @@
 import { useState, useCallback, createContext, useContext } from 'react';
 import Toast from './Toast';
+import { useNotificationHistory } from '../hooks/useNotificationHistory';
 
 const ToastContext = createContext(null);
 
 export function ToastProvider({ children }) {
   const [toasts, setToasts] = useState([]);
+  const { addNotification } = useNotificationHistory();
 
   const addToast = useCallback((message, type = 'info', duration = 5000) => {
     const id = Date.now() + Math.random();
     setToasts((prev) => [...prev, { id, message, type, duration }]);
-  }, []);
+
+    // Save to notification history
+    addNotification(message, type);
+  }, [addNotification]);
 
   const removeToast = useCallback((id) => {
     setToasts((prev) => prev.filter((toast) => toast.id !== id));

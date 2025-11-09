@@ -36,15 +36,20 @@ def calendar_integrator_node(state: AgentState) -> AgentState:
 
 def ask_user_node(state: AgentState) -> AgentState:
     """
-    This is a special node. It PAUSES the graph.
-    The API will return the conflicts to the user.
-    The user's response will be sent back via a *different* API endpoint,
-    which will resume the graph.
+    This node handles conflict resolution.
+    Since we don't have a real user feedback mechanism, we:
+    1. Log the conflicts for the user to see
+    2. Mark that we need to stop retrying after max attempts
+    3. Return state to allow graceful exit
     """
-    print("--- ORCHESTRATOR: Pausing for user input. ---")
+    print("--- ORCHESTRATOR: Conflict resolution node. ---")
     print(f"--- Conflicts to show user: {state['conflicts']}")
-    # The graph will stop here and wait.
-    # The `user_feedback` key will be populated when the graph is resumed.
+
+    # Since there's no real user feedback mechanism implemented,
+    # we'll mark that conflicts should be shown to user in the response
+    # The routing logic will handle max retry limits
+    state["show_conflicts_to_user"] = True
+
     return state
 
 
@@ -57,8 +62,21 @@ def route_after_scheduling(state: AgentState) -> str:
     This is the "conditional edge" from your documentation.
     """
     print("--- ORCHESTRATOR: Making decision... ---")
+
+    # Check if max retries exceeded
+    max_conflict_retries = 3
+    conflict_attempts = state.get("conflict_resolution_attempts", 0)
+
+    if conflict_attempts >= max_conflict_retries:
+        print(f"--- ORCHESTRATOR: Max retries ({max_conflict_retries}) exceeded. Proceeding with partial results. ---")
+        # Reset needs_user_input to break the loop
+        state["needs_user_input"] = False
+        return "integrate"
+
     if state.get("needs_user_input", False):
-        print("--- ORCHESTRATOR: Decision: Conflicts found, asking user. ---")
+        print(f"--- ORCHESTRATOR: Decision: Conflicts found (attempt {conflict_attempts + 1}/{max_conflict_retries}), asking user. ---")
+        # Increment retry counter
+        state["conflict_resolution_attempts"] = conflict_attempts + 1
         return "ask_user"  # This string must match a node name
     else:
         print("--- ORCHESTRATOR: Decision: No conflicts, integrating calendar. ---")
@@ -113,7 +131,7 @@ def create_scheduler_graph():
     workflow.add_edge("ask_user", "schedule")
 
     # --- 6. Compile the Graph ---
-    # This finalizes the workflow.
+    # This finalizes the workflow
     print("--- ORCHESTRATOR: Compiling graph... ---")
     app = workflow.compile()
     print("--- ORCHESTRATOR: Graph compiled successfully! ---")
