@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.api import transcribe, auth
+from app.api import transcribe, auth, notifications
 
 app = FastAPI(title="Intelligent Scheduler API", version="1.0.0")
 
@@ -15,6 +15,7 @@ app.add_middleware(
 # Include routers
 app.include_router(auth.router)
 app.include_router(transcribe.router)
+app.include_router(notifications.router)
 
 @app.get("/")
 async def root():
@@ -28,6 +29,7 @@ async def root():
             "auth_me": "GET /api/auth/me - Get current user",
             "auth_logout": "POST /api/auth/logout - Logout",
             "transcribe": "POST /api/transcribe - Transcribe audio and schedule tasks",
+            "notifications": "GET /api/notifications - Upcoming event notifications",
             "docs": "GET /docs - API documentation"
         }
     }

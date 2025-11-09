@@ -1,7 +1,9 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import useNotification from '../hooks/useNotifications';
 import NotificationModal from '../components/NotificationModal';
+import { getUpcomingNotifications, getWeeklyHighlights } from '../services/notifications';
 
 const tabs = [
   { name: 'Voice Assistant', path: '/dashboard' },
@@ -21,6 +23,37 @@ export default function MainLayout({ children }) {
     showNotification,
     closeNotification,
   } = useNotification();
+
+  useEffect(() => {
+    let cancelled = false;
+    async function loadNotifications() {
+      try {
+        const userId = user?.id || user?.user_id || null;
+        // Try weekly highlight first
+        try {
+          const highlight = await getWeeklyHighlights(userId);
+          const msg = highlight?.message;
+          if (!cancelled && msg) {
+            showNotification('This Week', msg);
+            return;
+          }
+        } catch (_) {
+          // ignore highlight failure and fall back
+        }
+        // Fall back to first upcoming event
+        const list = await getUpcomingNotifications(userId, 7);
+        if (!cancelled && list?.notifications?.length) {
+          const first = list.notifications[0];
+          showNotification(first.title || 'Upcoming', first.message || 'You have an upcoming event.');
+        }
+      } catch (e) {
+        // Silently ignore notification errors in UI
+        // console.warn('Failed to load notifications', e);
+      }
+    }
+    loadNotifications();
+    return () => { cancelled = true; };
+  }, [user, showNotification]);
 
   const handleLogout = async () => {
     await logout();

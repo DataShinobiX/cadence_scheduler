@@ -54,6 +54,7 @@ def fetch_calendar_events(
             description,
             start_datetime,
             end_datetime,
+            location,
             is_movable,
             is_external
         FROM calendar_events
@@ -96,6 +97,7 @@ def fetch_calendar_events(
                     "description": row.get("description"),
                     "start_datetime": row.get("start_datetime"),
                     "end_datetime": row.get("end_datetime"),
+                    "location": row.get("location"),
                     "is_movable": row.get("is_movable"),
                     "is_external": row.get("is_external"),
                 }
